@@ -5,7 +5,9 @@
 const I18N = {
   ko: {
     lang: 'EN', langTitle: 'English (L)', help: '도움말', helpTitle: '범례 · 단축키 (H)',
-    contact: '연락', contactTitle: '만든 사람 · 연락처', email: '이메일', copy: '복사', copied: '복사됨', 'bar.t': '조절 바 펼치기: 성장·전기 → 소리 → 접기 (C)',
+    contact: '연락', contactTitle: '만든 사람 · 연락처', email: '이메일', copy: '복사', copied: '복사됨',
+    rec: '녹화', 'rec.t': '무대를 소리와 함께 녹화해 영상 파일로 저장 (최대 60초, 다시 누르면 멈추고 저장)',
+    'rec.na': '녹화는 이 안에서는 안 돼요 — GitHub Pages 사이트에서 열어 주세요 (biinggala.github.io/digital-fungi-sound)', 'bar.t': '조절 바 펼치기: 성장·전기 → 소리 → 접기 (C)',
     play: '재생', pause: '정지', reset: '리셋', 'reset.t': '새 군체로 다시 시작 (R)',
     tool: '도구', 'tool.spore': '포자', 'tool.food': '먹이', 'tool.stim': '자극', 'tool.probe': '전극',
     'tool.spore.t': '포자 심기 (1)', 'tool.food.t': '먹이 주기 — 끌어서 칠하기 (2)', 'tool.stim.t': '전기 자극 (3)', 'tool.probe.t': '기록 전극 꽂기 (4)',
@@ -56,7 +58,9 @@ const I18N = {
   },
   en: {
     lang: '한', langTitle: '한국어 (L)', help: 'Help', helpTitle: 'Legend · shortcuts (H)',
-    contact: 'Contact', contactTitle: 'Made by · contact', email: 'Email', copy: 'Copy', copied: 'Copied', 'bar.t': 'Expand controls: growth·electric → sound → collapse (C)',
+    contact: 'Contact', contactTitle: 'Made by · contact', email: 'Email', copy: 'Copy', copied: 'Copied',
+    rec: 'Rec', 'rec.t': 'Record the stage with sound and save a video file (up to 60 s; press again to stop and save)',
+    'rec.na': 'Recording does not work inside this embed. Open the GitHub Pages site (biinggala.github.io/digital-fungi-sound)', 'bar.t': 'Expand controls: growth·electric → sound → collapse (C)',
     play: 'Play', pause: 'Pause', reset: 'Reset', 'reset.t': 'Start over with a new colony (R)',
     tool: 'Tool', 'tool.spore': 'Spore', 'tool.food': 'Food', 'tool.stim': 'Stim', 'tool.probe': 'Probe',
     'tool.spore.t': 'Plant a spore (1)', 'tool.food.t': 'Add food — drag to paint (2)', 'tool.stim.t': 'Electrical stimulus (3)', 'tool.probe.t': 'Place recording electrode (4)',

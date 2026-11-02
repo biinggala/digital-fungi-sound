@@ -233,6 +233,16 @@ class MyceliumSound {
   }
 
   setVolume(v) { this.volume = v; this.applyGain(); }
+
+  // 녹화용 소리: 스피커로 가는 것과 같은 최종 출력(컴프레서 뒤)을 MediaStream으로. 볼륨 · 음소거도 그대로 따른다
+  recStream() {
+    if (!this.ctx) return null;
+    if (!this.recDest) {
+      this.recDest = this.ctx.createMediaStreamDestination();
+      this.comp.connect(this.recDest);
+    }
+    return this.recDest.stream;
+  }
   setMuted(m) { this.muted = m; this.applyGain(); }
   get audible() { return this.enabled && !this.muted && this.ctx.state === 'running'; }
 
@@ -297,6 +307,7 @@ class MyceliumSound {
     this.master = ctx.createGain();
     this.master.gain.value = 0;
     this.master.connect(comp).connect(ctx.destination);
+    this.comp = comp;
     this.dry = ctx.createGain();
     this.dry.connect(this.master);
 

@@ -312,6 +312,7 @@ function loop() {
   sound.update(sim, ui.paused, ui.speed);
   draw();
   drawScope();
+  if (rec.mr) recFrame();
   if (ui.frame % 2 === 0 && sound.enabled && $('bar').dataset.level === '2') {
     const lv = sound.levels();
     for (const k in lv) levelers[k](lv[k]);
@@ -626,6 +627,85 @@ function showSoundControls() {
   renderPresets();
 }
 
+// ---------- 녹화 ----------
+// 무대 캔버스를 녹화용 캔버스에 (바탕색 + 제목 · 날짜 자막과 함께) 매 프레임 옮겨 그리고, 그 영상과 최종 소리를 MediaRecorder로.
+// 최대 60초. 멈추면 영상 파일(가능하면 mp4, 아니면 webm)로 저장한다. 다른 페이지 안에 끼워진 경우(아티팩트)는 파일 저장이 막혀서 끈다
+const REC_MAX = 60;
+const rec = { mr: null, chunks: [], at: 0, cv: null, cx: null };
+let embedded = false;
+try { embedded = window.self !== window.top; } catch (e) { embedded = true; }
+const recOK = !embedded && typeof MediaRecorder !== 'undefined' && !!HTMLCanvasElement.prototype.captureStream;
+
+function recMime() {
+  for (const m of ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']) {
+    if (MediaRecorder.isTypeSupported(m)) return m;
+  }
+  return '';
+}
+
+function recFrame() {
+  const c = rec.cx, w = rec.cv.width, h = rec.cv.height, u = w / 1000;  // 자막 크기는 영상 폭에 비례
+  c.fillStyle = '#0b0b0b';
+  c.fillRect(0, 0, w, h);
+  c.drawImage(canvas, 0, 0, w, h);
+  c.font = `${Math.round(13 * u)}px 'DM Mono', ui-monospace, Menlo, monospace`;
+  c.textBaseline = 'alphabetic';
+  c.fillStyle = 'rgba(224, 224, 224, 0.85)';
+  c.fillText('DIGITAL FUNGI  ·  BY HEEGUN CHOI', 18 * u, h - 18 * u);
+  const day = `DAY ${((sim.t * UNITS.minPerTick) / 1440).toFixed(1)}`;
+  c.fillText(day, w - 18 * u - c.measureText(day).width, h - 18 * u);
+  const sec = (performance.now() - rec.at) / 1000;
+  if (ui.frame % 10 === 0) $('rec').textContent = `■ ${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
+  if (sec >= REC_MAX) stopRec();
+}
+
+function startRec() {
+  const s = Math.min(1, 1920 / canvas.width);  // 영상은 가로 1920 이하, H.264를 위해 짝수 크기
+  rec.cv = document.createElement('canvas');
+  rec.cv.width = Math.max(2, Math.round((canvas.width * s) / 2) * 2);
+  rec.cv.height = Math.max(2, Math.round((canvas.height * s) / 2) * 2);
+  rec.cx = rec.cv.getContext('2d');
+  rec.at = performance.now();
+  recFrame();
+  const stream = rec.cv.captureStream(30);
+  const audio = sound.enabled ? sound.recStream() : null;
+  if (audio) for (const tr of audio.getAudioTracks()) stream.addTrack(tr);
+  const mime = recMime();
+  rec.mr = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 8e6 } : { videoBitsPerSecond: 8e6 });
+  rec.chunks = [];
+  rec.mr.ondataavailable = (e) => { if (e.data.size) rec.chunks.push(e.data); };
+  rec.mr.onstop = saveRec;
+  rec.mr.start(1000);
+  $('rec').classList.add('on');
+}
+
+function stopRec() {
+  if (rec.mr && rec.mr.state !== 'inactive') rec.mr.stop();
+}
+
+function saveRec() {
+  const type = rec.mr.mimeType || 'video/webm';
+  const blob = new Blob(rec.chunks, { type });
+  const d = new Date(), pad = (n) => String(n).padStart(2, '0');
+  const name = `digital-fungi-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.${type.includes('mp4') ? 'mp4' : 'webm'}`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  rec.last = { name, type, size: blob.size, url: a.href };
+  rec.mr = null;
+  $('rec').classList.remove('on');
+  $('rec').textContent = `● ${t('rec')}`;
+}
+
+$('rec').addEventListener('click', () => {
+  if (!recOK) return;
+  if (rec.mr) stopRec(); else startRec();
+});
+
 // ---------- 한/영 ----------
 
 // 정적 문구는 applyI18n, 상태에 따라 바뀌는 문구와 선택지는 여기서 다시 쓴다
@@ -633,6 +713,9 @@ function relabel() {
   applyI18n();
   $('pause').textContent = ui.paused ? `▸ ${t('play')}` : `❚❚ ${t('pause')}`;
   $('reset').textContent = `↺ ${t('reset')}`;
+  if (!rec.mr) $('rec').textContent = `● ${t('rec')}`;
+  $('rec').disabled = !recOK;
+  if (!recOK) $('rec').title = t('rec.na');
   $('soundOn').textContent = `♪ ${t(sound.enabled ? 'soundOnDone' : 'soundOn')}`;
   $('mute').textContent = t(sound.muted ? 'unmute' : 'mute');
   for (const o of $('soundScale').options) o.text = t(`scale.${o.value}`);
