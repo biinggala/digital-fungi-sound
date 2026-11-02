@@ -22,7 +22,6 @@ const BUCKETS = [
   { width: 2.0, alpha: 0.9 },
 ];
 const FLOW_COLORS = ['36, 95%, 62%', '192, 85%, 66%'];  // 공급(흡수) / 소비(성장)
-const SPIKE = '185, 100%, 58%';  // 전기 스파이크
 const STYLE_COLOR = { lab: '--lab', eno: '--eno', moss: '--moss', greenhouse: '--green', aphex: '--aphex', sunra: '--sunra' };
 const scope = $('scope');
 const sctx = scope.getContext('2d');
@@ -89,6 +88,7 @@ function toggleFit() {
 }
 
 function reset() {
+  if (stage.clientWidth < 50 || stage.clientHeight < 50) return;  // 창이 잠깐 0 크기면 (숨은 창 등) 지금 월드를 그대로 둔다
   W = stage.clientWidth;
   H = stage.clientHeight;
   Object.assign(view, { zoom: 1, cx: W / 2, cy: H / 2 });
@@ -198,30 +198,41 @@ function draw() {
     ctx.stroke(fusion[bk]);
   }
 
-  // 전기 스파이크: 흥분한 세그먼트를 빛나게
-  const { V } = sim;
-  const spikeLo = new Path2D(), spikeHi = new Path2D();
+  // 전기 신호: 새 색을 얹지 않고 균사 자체가 변한다. 막 흥분한 앞쪽(V 높음)은 그 군체 빛깔로 밝아지며 조금 굵어지고,
+  // 지나간 뒤 불응기(회복 변수 Wr 높음)에는 잠깐 어두워졌다가 Wr가 빠지는 만큼 천천히 돌아온다
+  const { V, Wr } = sim;
+  const lit = [], dim = [new Path2D(), new Path2D(), new Path2D()];
   for (let i = 0; i < sim.count; i++) {
-    const v = V[i];
-    if (v < 0.25 || !alive[i]) continue;
+    if (!alive[i]) continue;
     const p = par[i];
     if (p < 0) continue;
-    const path = v > 0.6 ? spikeHi : spikeLo;
-    path.moveTo(x[p], y[p]);
-    path.lineTo(x[i], y[i]);
+    // 밝기 = 흥분 × 신선함: 회복 변수가 쌓일수록 빛이 빠진다 → 앞쪽 띠가 가장 밝고 뒤로 갈수록 옅어진다
+    const e = V[i] * Math.max(0, 1 - Wr[i] / 0.25);
+    if (e >= 0.12) {
+      const k = e < 0.3 ? 0 : e < 0.6 ? 1 : 2, d = D[i], b = d < 0.12 ? 0 : d < 0.35 ? 1 : d < 0.65 ? 2 : 3;
+      const key = ((flow ? 0 : col[i]) * 3 + k) * 4 + b;
+      const path = lit[key] || (lit[key] = new Path2D());
+      path.moveTo(x[p], y[p]); path.lineTo(x[i], y[i]);
+    } else if (V[i] < 0.3 && Wr[i] > 0.06) {
+      const w = Wr[i], k = w < 0.14 ? 0 : w < 0.24 ? 1 : 2;
+      dim[k].moveTo(x[p], y[p]); dim[k].lineTo(x[i], y[i]);
+    }
   }
-  // 밝은 균사 위에서도 보이도록 덧칠(lighter)이 아니라 일반 합성으로 그린다
   ctx.globalCompositeOperation = 'source-over';
-  ctx.strokeStyle = `hsla(${SPIKE}, 0.18)`;
-  ctx.lineWidth = 7 * lw;
-  ctx.stroke(spikeHi);
-  ctx.strokeStyle = `hsla(${SPIKE}, 0.45)`;
-  ctx.lineWidth = 2.2 * lw;
-  ctx.stroke(spikeLo);
-  ctx.strokeStyle = `hsla(${SPIKE}, 0.95)`;
-  ctx.lineWidth = 2.6 * lw;
-  ctx.stroke(spikeHi);
+  [0.18, 0.32, 0.46].forEach((a, k) => {
+    ctx.strokeStyle = `rgba(11, 11, 11, ${a})`;
+    ctx.lineWidth = 1.4 * lw;
+    ctx.stroke(dim[k]);
+  });
   ctx.globalCompositeOperation = 'lighter';
+  for (let key = 0; key < lit.length; key++) {
+    if (!lit[key]) continue;
+    const b = key % 4, k = ((key / 4) | 0) % 3, g = ((key / 4) | 0) / 3 | 0;
+    const hue = flow ? 40 : sim.colonies[g].hue;
+    ctx.strokeStyle = `hsla(${hue}, 45%, 88%, ${[0.3, 0.55, 0.85][k]})`;
+    ctx.lineWidth = (BUCKETS[b].width + 0.5 + 0.4 * k) * lw;
+    ctx.stroke(lit[key]);
+  }
 
   // 팁
   for (const tp of sim.tips) {
@@ -256,7 +267,7 @@ function drawScope() {
   sctx.moveTo(0, yOf(0)); sctx.lineTo(w, yOf(0));
   sctx.stroke();
   const tr = sim.trace, n = tr.length;
-  sctx.strokeStyle = `hsl(${SPIKE})`;
+  sctx.strokeStyle = '#d6d0c4';  // 오실로스코프: 무대와 같은 따뜻한 흰빛
   sctx.lineWidth = 2;
   sctx.beginPath();
   let pen = false, any = false;
@@ -302,7 +313,7 @@ function updateLegend() {
   const sw = (hsl) => `<span class="sw" style="background:hsl(${hsl})"></span>`;
   $('legend').innerHTML = ui.view === 'flow'
     ? t('help.legend.flow', sw(FLOW_COLORS[0]), sw(FLOW_COLORS[1]))
-    : t('help.legend.colony', sw(SPIKE));
+    : t('help.legend.colony');
 }
 
 function updateSoundStats() { $('soundStats').textContent = sound.enabled ? t('sound.stats', sound.info) : t('sound.off'); }

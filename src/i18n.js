@@ -48,7 +48,8 @@ const I18N = {
     'scale.minorPenta': '단조 5음', 'scale.majorPenta': '장조 5음', 'scale.lydian': '리디안', 'scale.dorian': '도리안',
     'scale.wholeTone': '온음', 'scale.slendro': '슬렌드로', 'scale.inScale': '인 음계', 'scale.chromatic': '반음계',
 
-    'help.legend.colony': (sw) => `굵기 = 전도도 D (많이 쓴 길일수록 굵어짐) · 노란 선 = 융합 간선 (고리를 닫는 우회로) · ${sw}전기 스파이크 · ` +
+    'help.legend.colony': () => '굵기 = 전도도 D (많이 쓴 길일수록 굵어짐) · 노란 선 = 융합 간선 (고리를 닫는 우회로) · ' +
+      '균사가 밝아지며 지나가는 띠 = 전기 신호, 그 뒤 잠깐 어두워짐 = 불응기 · ' +
       '옅은 솜 = 균사 매트 (버섯과 포자는 그리지 않는다 — 버섯이 생긴 곳은 양분이 몰리며 굵어지는 줄기로 보인다)',
     'help.legend.flow': (a, b) => `${a}흡수해서 내보내는 쪽 · ${b}받아서 쓰는 쪽 · 굵기 = 흐름이 많았던 경로`,
     'help.body': '<b>도구</b> 클릭 · 1 포자 · 2 먹이(끌어서 칠하기) · 3 자극 · 4 전극<br>' +
@@ -105,7 +106,8 @@ const I18N = {
     'scale.minorPenta': 'Minor penta', 'scale.majorPenta': 'Major penta', 'scale.lydian': 'Lydian', 'scale.dorian': 'Dorian',
     'scale.wholeTone': 'Whole tone', 'scale.slendro': 'Slendro', 'scale.inScale': 'In (miyako-bushi)', 'scale.chromatic': 'Chromatic',
 
-    'help.legend.colony': (sw) => `width = conductance D (well-used paths thicken) · yellow = fusion edges (loop-closing shortcuts) · ${sw}electrical spike · ` +
+    'help.legend.colony': () => 'width = conductance D (well-used paths thicken) · yellow = fusion edges (loop-closing shortcuts) · ' +
+      'a band of light running along the hyphae = electrical signal, the brief dimming behind it = refractory period · ' +
       'pale fuzz = mycelial mat (mushrooms and spores are not drawn — a fruiting site shows as cords thickening toward it)',
     'help.legend.flow': (a, b) => `${a}absorbing & exporting · ${b}receiving & consuming · width = how much has flowed`,
     'help.body': '<b>Tools</b> click · 1 spore · 2 food (drag to paint) · 3 stim · 4 probe<br>' +
