@@ -4,7 +4,8 @@
 
 const I18N = {
   ko: {
-    lang: 'EN', langTitle: 'English (L)', help: '도움말', helpTitle: '범례 · 단축키 (H)', 'bar.t': '조절 바 펼치기: 성장·전기 → 소리 → 접기 (C)',
+    lang: 'EN', langTitle: 'English (L)', help: '도움말', helpTitle: '범례 · 단축키 (H)',
+    contact: '연락', contactTitle: '만든 사람 · 연락처', email: '이메일', copy: '복사', copied: '복사됨', 'bar.t': '조절 바 펼치기: 성장·전기 → 소리 → 접기 (C)',
     play: '재생', pause: '정지', reset: '리셋', 'reset.t': '새 군체로 다시 시작 (R)',
     tool: '도구', 'tool.spore': '포자', 'tool.food': '먹이', 'tool.stim': '자극', 'tool.probe': '전극',
     'tool.spore.t': '포자 심기 (1)', 'tool.food.t': '먹이 주기 — 끌어서 칠하기 (2)', 'tool.stim.t': '전기 자극 (3)', 'tool.probe.t': '기록 전극 꽂기 (4)',
@@ -54,7 +55,8 @@ const I18N = {
       '<b>결실</b> 매트가 땅을 다 채우거나 양분이 모자라기 시작하면, 저장 양분으로 버섯을 올린다. 버섯 쪽으로 양분이 흐르며 줄기가 굵어지고, 다 자라면 포자를 날린다. 포자는 빈 땅에서만 싹튼다',
   },
   en: {
-    lang: '한', langTitle: '한국어 (L)', help: 'Help', helpTitle: 'Legend · shortcuts (H)', 'bar.t': 'Expand controls: growth·electric → sound → collapse (C)',
+    lang: '한', langTitle: '한국어 (L)', help: 'Help', helpTitle: 'Legend · shortcuts (H)',
+    contact: 'Contact', contactTitle: 'Made by · contact', email: 'Email', copy: 'Copy', copied: 'Copied', 'bar.t': 'Expand controls: growth·electric → sound → collapse (C)',
     play: 'Play', pause: 'Pause', reset: 'Reset', 'reset.t': 'Start over with a new colony (R)',
     tool: 'Tool', 'tool.spore': 'Spore', 'tool.food': 'Food', 'tool.stim': 'Stim', 'tool.probe': 'Probe',
     'tool.spore.t': 'Plant a spore (1)', 'tool.food.t': 'Add food — drag to paint (2)', 'tool.stim.t': 'Electrical stimulus (3)', 'tool.probe.t': 'Place recording electrode (4)',

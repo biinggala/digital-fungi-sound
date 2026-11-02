@@ -100,8 +100,20 @@
   #scalebar { position: absolute; right: 22px; bottom: 16px; display: flex; align-items: center; gap: 8px; pointer-events: none;
     color: var(--muted); font-size: 11px; }
   #scalebar i { display: block; height: 2px; background: #cfcfcf; }
-  #help { position: absolute; left: 18px; bottom: 18px; max-width: 620px; padding: 12px 16px; line-height: 1.75;
+  #help, #contact { position: absolute; padding: 12px 16px; line-height: 1.75;
     background: rgba(12, 12, 12, 0.94); border: 1px solid #333; border-radius: 3px; color: var(--fg); }
+  #help { left: 18px; bottom: 18px; max-width: 620px; }
+  /* 만든 사람 · 연락처: 도움말과 같은 판, 무대 오른쪽 위 */
+  #contact { right: 18px; top: 18px; min-width: 300px; }
+  #contact .who { color: var(--strong); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  #contact dl { display: grid; grid-template-columns: 84px auto; column-gap: 12px; row-gap: 2px; margin: 0; align-items: center; }
+  #contact dt { color: var(--muted); text-transform: uppercase; }
+  #contact dd { margin: 0; display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+  #contact a { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--muted-3); }
+  #contact a:hover, #contact a:focus-visible { color: var(--strong); border-bottom-color: var(--strong); }
+  #contact .mail { user-select: text; }
+  .byline { color: var(--muted-2); text-transform: uppercase; }
+  .byline b { color: var(--muted); font-weight: 400; }
   /* 휴대폰 폭: 여백 16 px, 믹서는 한 줄씩 */
   @media (max-width: 600px) {
     #bar, #status { padding-left: 16px; padding-right: 16px; }
@@ -111,6 +123,7 @@
     .chan { grid-template-columns: 64px minmax(0, 1fr) 54px 48px; }
     .line { column-gap: 18px; }
     #help { left: 8px; right: 8px; bottom: 8px; }
+    #contact { left: 8px; right: 8px; top: 8px; min-width: 0; }
   }
   #help b { color: var(--muted); font-weight: 400; text-transform: uppercase; margin-right: 6px; }
   #legend { margin-top: 6px; color: var(--muted); }
@@ -121,7 +134,7 @@
 <header id="bar" data-level="2">
   <!-- 1: 제목 · 재생 · 도구 · 보기 · 언어 -->
   <div class="line">
-    <span class="title">Digital Fungi<small>♪ sound</small></span>
+    <span class="ctl"><span class="title">Digital Fungi<small>♪ sound</small></span><span class="byline">by <b>Heegun Choi</b></span></span>
     <span class="ctl">
       <button class="btn" id="pause"></button>
       <button class="btn" id="reset" data-i18n-title="reset.t"></button>
@@ -155,6 +168,7 @@
       <button class="btn" id="soundOn" data-i18n-title="soundOn.t"></button>
       <button class="btn" id="mute" data-i18n-title="mute.t" disabled></button>
       <button class="opt" id="barToggle" data-i18n-title="bar.t">▴</button>
+      <button class="opt" id="contactBtn" data-i18n="contact" data-i18n-title="contactTitle"></button>
       <button class="opt" id="helpBtn" data-i18n="help" data-i18n-title="helpTitle"></button>
       <button class="btn" id="lang" data-i18n="lang" data-i18n-title="langTitle"></button>
     </span>
@@ -233,15 +247,23 @@
   <canvas id="world"></canvas>
   <div id="scalebar"><i></i><span></span></div>
   <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+  <div id="contact" hidden>
+    <div class="who">Heegun Choi</div>
+    <dl>
+      <dt>Instagram</dt><dd><a href="https://www.instagram.com/biinggala/" target="_blank" rel="noopener">@biinggala ↗</a></dd>
+      <dt>GitHub</dt><dd><a href="https://github.com/biinggala" target="_blank" rel="noopener">biinggala ↗</a></dd>
+      <dt data-i18n="email"></dt><dd><span class="mail" id="mail">biinggala@gmail.com</span><button class="btn" id="copyMail" data-i18n="copy"></button></dd>
+    </dl>
+  </div>
   <div id="help" hidden>
     <div data-i18n-html="help.body"></div>
     <div id="legend"></div>
   </div>
 </main>
 
-<script src="src/i18n.js?v=12"></script>
+<script src="src/i18n.js?v=13"></script>
 <script src="src/mycelium.js?v=11"></script>
 <script src="src/sound.js?v=21"></script>
-<script src="src/main.js?v=25"></script>
+<script src="src/main.js?v=26"></script>
 </body>
 </html>

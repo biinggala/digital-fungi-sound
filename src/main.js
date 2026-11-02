@@ -484,6 +484,14 @@ try {
 } catch (e) { setBarLevel(2); }
 
 function toggleHelp() { $('help').hidden = !$('help').hidden; $('helpBtn').classList.toggle('on', !$('help').hidden); }
+function toggleContact() { $('contact').hidden = !$('contact').hidden; $('contactBtn').classList.toggle('on', !$('contact').hidden); }
+$('contactBtn').addEventListener('click', toggleContact);
+// 이메일 복사: 클립보드가 막혀 있으면 주소를 선택해 둬서 바로 복사할 수 있게
+$('copyMail').addEventListener('click', async () => {
+  const done = () => { $('copyMail').textContent = t('copied'); setTimeout(() => { $('copyMail').textContent = t('copy'); }, 1500); };
+  try { await navigator.clipboard.writeText($('mail').textContent); done(); }
+  catch (e) { const r = document.createRange(); r.selectNodeContents($('mail')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+});
 $('helpBtn').addEventListener('click', toggleHelp);
 
 // 소리 켜기 · 음소거
@@ -642,6 +650,7 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'm') toggleMute();
   else if (e.key === 'l') toggleLang();
   else if (e.key === 'h') toggleHelp();
+  else if (e.key === 'Escape') { if (!$('help').hidden) toggleHelp(); if (!$('contact').hidden) toggleContact(); }
   else if (e.key === 'f') toggleFit();
   else if (e.key === 'c') cycleBar();
   else if (e.key === '1') setTool('spore');
