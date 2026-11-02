@@ -13,6 +13,12 @@
 //   Q_ij = D_ij (P_i − P_j)                     (간선 흐름: 융합으로 생긴 고리도 실제 우회로가 된다)
 //   D ← D + λ ( f(|Q|) − D ),  f(q) = (q/Q0)^μ / (1 + (q/Q0)^μ)   (쓰면 굵어지고, 안 쓰면 가늘어진다)
 //
+// 수송 방식 (p.transport):
+//   'global' — 군체 저장고 하나. 어디서 흡수한 양분이든 즉시 어느 팁이든 쓸 수 있고, 회로는 "그만큼이 흘렀다면"의 흐름만 계산한다.
+//   'local'  — 노드마다 저장량 R_i. 양분은 균사를 따라 실제로 옮겨 가고, 팁 · 매트 · 버섯은 자기 노드에 와 있는 양만 쓴다:
+//     dR_i/dt = Σ_j κ g_ij (R_j − R_i) + 흡수_i − 유지비_i − 성장_i      (g = D + ε: 굵을수록 잘 나른다. 간선 흐름 Q_ij = κ g_ij (R_i − R_j))
+//     트리 간선은 암묵적으로 (Hines, O(N)), 융합 간선은 두 끝의 정확한 평형식으로 → 어떤 κ에서도 안정, 질량 정확히 보존, R ≥ 0.
+//     κ → ∞ 이면 정상 상태 흐름이 키르히호프 풀이와 같아진다 (전역 방식은 그 극한 + 저장 위치를 무시한 것).
 // 균사 매트: 하나하나 계산하기엔 너무 촘촘한 가는 균사는 토양 격자 위의 밀도 m ∈ [0, 1]로 다룬다 (이산 + 연속 혼합, Boswell · Davidson 류).
 //   ∂m/∂t = ∇·(D_m(P) ∇m) + [ r m (1 − m) + s·χ (1 − m) ] · N/(N + K) − λ m   (Fisher–KPP + 명시적 균사가 씨를 뿌림 χ, Monod 양분 제한, 자가분해 λ)
 //   D_m(P) = D · P/(P + P½): 퍼짐도 군체 저장 양분 P에 달렸다 (균사 끝의 신장은 내부 양분에 기댄다)
@@ -52,6 +58,8 @@ const FUNGI_DEFAULTS = {
   swapRatio: 1.5,     // 융합 간선이 고리 위 가장 약한 트리 간선보다 이만큼 굵으면 역할을 바꾼다
   flowEvery: 4,       // 회로를 몇 tick마다 다시 풀지 (D는 천천히 변하므로 매 tick 풀 필요는 없다)
   recycle: 0.4,       // 자가분해 · 분해 때 양분으로 돌아오는 비율 (나머지는 호흡으로 빠져나간다)
+  transport: 'local', // 'local': 노드마다 저장량, 균사를 따라 옮겨 감 · 'global': 군체 저장고 하나 (비교용)
+  translocate: 5000,  // κ: 국소 수송 세기 (/tick, 전도도 1당). 실측 수송 속도에 맞춘 값은 README 10장
 
   // 균사 매트 (연속체 밀도 m, FIELD_CELL 칸의 포화 밀도 대비)
   matGrowth: 0.02,    // r: 로지스틱 자람 속도 (/tick)
@@ -70,12 +78,15 @@ const FUNGI_DEFAULTS = {
   sporeYield: 0.3,    // 다 자란 버섯 바이오매스 중 포자로 가는 비율
 };
 
-// 물리 척도 (보정, README 9장): 1 px = 0.26 mm (화면 가로 ≈ 24 cm 토양 미세계), 1 tick ≈ 33분.
-// 근거: 모델의 균사 전선 속도 0.73 px/tick (무작위 토양 5판 평균, 0.41 ~ 0.88) = 실측 8.4 mm/day
-// (Phanerochaete velutina, 비멸균 토양, Bretherton et al. 2006). 이 척도에서 땅을 90% 채우는 데 ≈ 18일 (배양 기질 2 ~ 3주와 맞음)
-const UNITS = { mmPerPx: 0.26, minPerTick: 33 };
+// 물리 척도 (보정, README 9 · 10장): 1 px = 0.26 mm (화면 가로 ≈ 24 cm 토양 미세계).
+// 1 tick의 길이는 모델의 균사 전선 속도를 실측 8.4 mm/day (Phanerochaete velutina, 비멸균 토양, Bretherton et al. 2006)에 맞춰 정한다.
+// 수송 방식마다 전선 속도가 달라서 따로 보정한다 (무작위 토양 12판 평균):
+//   국소 0.51 px/tick → 1 tick ≈ 23분 (땅 90% 채움 ≈ 16일) · 전역 0.73 ~ 0.78 px/tick → 1 tick ≈ 33분 (≈ 18일). 배양 기질 2 ~ 3주와 맞음
+// 아래 tick으로 정한 상수의 '≈ 며칠'은 처음 보정한 전역 척도(33분) 기준이다
+const UNITS = { mmPerPx: 0.26, minPerTick: { local: 23, global: 33 } };
 
 const G_EPS = 1e-3;     // 굵기가 0이 되어도 회로가 끊기지 않게 하는 최소 전도도
+const SINK_K = 0.001;   // 국소 수송: 싱크(팁 · 버섯) 흡수의 반포화 농도 (노드당 양분). 팁은 국소 농도가 이만하면 절반 속도로 자란다
 
 const MAT_D_MAX = 0.2;     // 4·D + r + s ≤ 1 이면 명시적 갱신이 양수성 · 상한(m ≤ 1)을 지킨다 (r ≤ 0.06, s = 0.05에서)
 const MAT_MIN = 1e-4;      // 이보다 옅은 매트는 정리 (그 양은 호흡으로 장부에)
@@ -135,6 +146,8 @@ class Mycelium {
     this.born = new Int32Array(cap);
     this.owner = new Int32Array(cap);    // 이 노드를 만든 팁 id
     this.pinned = new Uint8Array(cap);   // 버섯이 붙은 노드 (가지치기하지 않는다)
+    this.R = new Float64Array(cap);      // 국소 수송: 노드에 와 있는 양분 (64비트 — 질량 장부)
+    this.local = this.p.transport === 'local';
     this.count = 0;
     this.liveNodes = 0;
 
@@ -304,6 +317,7 @@ class Mycelium {
     this.dens[this.densIndex(x, y)]++;
     this.frep[this.fieldIndex(x, y)] = i;
     this.pinned[i] = 0;
+    this.R[i] = 0;
     this.liveNodes++;
     this.colonies[col].nodes++;
     return i;
@@ -319,6 +333,7 @@ class Mycelium {
     const root = this.addNode(x, y, -1, cid, 0);
     this.colonies[cid].root = root;
     this.D[root] = 1;
+    if (this.local) this.R[root] = pool;  // 포자 안의 양분은 포자 자리에서 시작한다
     const n = 5 + ((Math.random() * 3) | 0);
     for (let k = 0; k < n; k++) this.spawnTip(root, cid, (k / n) * Math.PI * 2 + Math.random() * 0.4);
     return this.colonies[cid];
@@ -328,7 +343,7 @@ class Mycelium {
     // 먹이 안에서 태어난 가지는 이미 '먹이 안'이다 → 새로 먹이에 들어선 팁만 신호를 보낸다
     const inFood = this.field[this.fieldIndex(this.x[node], this.y[node])] > 0.15;
     this.tips.push({ id: this.nextTipId++, node, th, col, age: 0, starve: 0, alive: true,
-      inFood, hit: false, boost: 0 });
+      inFood, hit: false, boost: 0, fund: 0 });
     this.isTip[node] = 1;
     this.colonies[col].tips++;
   }
@@ -336,6 +351,8 @@ class Mycelium {
   killTip(tp) {
     if (!tp.alive) return;
     tp.alive = false;
+    this.R[tp.node] += tp.fund;  // 국소 수송: 팁이 모아 둔 양분은 그 자리에 남는다
+    tp.fund = 0;
     this.isTip[tp.node] = 0;
     this.colonies[tp.col].tips--;
   }
@@ -368,6 +385,8 @@ class Mycelium {
     // 자가분해(autolysis): 버린 균사의 일부를 회수, 나머지는 호흡
     const g = this.p.growCost;
     this.colonies[this.col[i]].pool += g * this.p.recycle;
+    // 국소 수송: 남은 저장량과 회수한 양분은 부모 노드로 (가지치기되는 노드는 언제나 부모가 있다)
+    if (this.local) { this.R[pi] += this.R[i] + g * this.p.recycle; this.R[i] = 0; }
     this.ledger.respired += g * (1 - this.p.recycle);
     this.netBiomass -= g;
   }
@@ -378,7 +397,8 @@ class Mycelium {
     const p = this.p;
     const colony = this.colonies[tp.col];
     const i = tp.node;
-    if (colony.pool < p.growCost || this.full) {
+    // 국소 수송: 팁은 싱크다. 수송 풀이 안에서 주변 양분을 끌어와 fund에 모으고(translocate), 한 마디 값이 모여야 자란다
+    if ((this.local ? tp.fund : colony.pool) < p.growCost || this.full) {
       if (++tp.starve > 90) this.killTip(tp);
       return;
     }
@@ -410,7 +430,8 @@ class Mycelium {
 
     const m = this.addNode(nx, ny, i, tp.col, tp.id);
     if (m < 0) { this.full = true; return; }
-    this.bal[m] += p.growCost;
+    if (this.local) tp.fund -= p.growCost;
+    else this.bal[m] += p.growCost;
     colony.pool -= p.growCost;
     this.netBiomass += p.growCost;
     this.isTip[i] = 0;
@@ -623,6 +644,136 @@ class Mycelium {
     }
   }
 
+  // 국소 수송 한 tick (암묵적 오일러): (I + κ L) R' = R.  L = 트리 + 융합 간선의 가중 라플라시안 (g = D + ε)
+  // M = I + κL은 열 합이 1인 M-행렬 → 질량이 정확히 보존되고 R ≥ 0이 유지되며, 어떤 κ에서도 안정하다.
+  // 키르히호프 풀이와 같은 축약으로 정확히 푼다:
+  //   1) 융합 끝점이 없는 서브트리는 Hines 소거로 부모에 접는다 (잎 → 뿌리)
+  //   2) 남길 노드(뿌리 · 융합 끝점 · 그 경로의 분기점) 사이 사슬은 위에서부터 차례로 소거 (Thomas) → 두 끝을 잇는 유효 간선 w
+  //   3) 남길 노드끼리(사슬 간선 + 융합 간선) 최소 차수 가우스 소거
+  //   4) 사슬은 아래에서부터, 서브트리는 위에서부터 대입
+  // 이번 tick 실제로 옮겨 간 양이 곧 간선 흐름 Q (부모 → 자식), fQ (a → b) → 굵기 적응이 실제 수송량을 본다.
+  //
+  // 싱크(자라는 팁, 버섯)는 같은 풀이 안에서 흡수한다: 미카엘리스–멘텐 u = d · R/(R + K) 를 땅으로 새는 항 h·R' 로 (h = d/(R + K), 직전 R로).
+  // 노드 한 칸에 와 있는 양만 가져가면 싱크가 주변을 끌어오지 못해 노드 '부피'가 흡수를 막는다 — 새는 항으로 넣으면 싱크 쪽으로 기울기가
+  // 생겨 네트워크가 실어 나른다. 흡수는 수요 d를 넘지 않고(넘친 몫은 그 노드에 되돌림), M-행렬이 그대로라 R ≥ 0, 질량 보존.
+  translocate() {
+    if (this.orderDirty) this.rebuildOrder();
+    const n = this.count, kap = this.p.translocate, growCost = this.p.growCost;
+    const { alive, par, D, Q, R, nfu, eg, er, order, orderLen, mchild, mbot, bot, needed, top, rid, fa, fb, fD, fQ } = this;
+    const w = this.accA, acc = this.accR;  // 키르히호프 풀이의 작업 공간을 빌려 쓴다: 위쪽 끝과의 유효 결합, 아래쪽에서 온 대입 값
+    const ka = (i) => kap * (D[i] + G_EPS);
+
+    for (let i = 0; i < n; i++) { eg[i] = 1; er[i] = R[i]; }
+    for (let i = 0; i < n; i++) {
+      if (!alive[i] || par[i] < 0) continue;
+      const a = ka(i);
+      eg[i] += a; eg[par[i]] += a;
+    }
+    for (let e = 0; e < this.fCount; e++) {
+      const g = kap * (fD[e] + G_EPS);
+      eg[fa[e]] += g; eg[fb[e]] += g;
+    }
+    // 싱크: [노드, 수요 d, h, 대상]
+    const sinks = [];
+    const addSink = (node, d, who) => {
+      if (!(d > 0)) return;
+      const h = d / (Math.max(0, R[node]) + SINK_K);
+      eg[node] += h;
+      sinks.push(node, d, h, who);
+    };
+    for (const tp of this.tips) if (tp.alive && tp.fund < growCost) addSink(tp.node, growCost - tp.fund, tp);
+    for (const f of this.fruits) {
+      f.got = 0;
+      if (f.stage === STAGE.GROW) addSink(f.node >= 0 ? f.node : this.colonies[f.col].root, f.want || 0, f);
+    }
+
+    // 1) 뒤에서부터: 남길 노드 판정, 융합 끝점이 없는 서브트리는 부모로 소거
+    mchild.fill(0, 0, n);
+    for (let k = orderLen - 1; k >= 0; k--) {
+      const i = order[k];
+      if (!alive[i]) continue;
+      needed[i] = par[i] < 0 || nfu[i] > 0 || mchild[i] >= 2 ? 1 : 0;
+      bot[i] = needed[i] ? i : mchild[i] === 1 ? mbot[i] : -1;
+      const pi = par[i];
+      if (pi < 0) continue;
+      if (bot[i] >= 0) { mchild[pi]++; mbot[pi] = bot[i]; continue; }
+      const a = ka(i), f = a / eg[i];
+      eg[pi] -= f * a;
+      er[pi] += f * er[i];
+    }
+
+    // 2) 앞에서부터: 사슬 노드를 위쪽 끝(top)에 대해 소거. w[i] = i와 top 사이의 유효 결합
+    let m = 0;
+    for (let k = 0; k < orderLen; k++) {
+      const i = order[k];
+      if (!alive[i]) continue;
+      rid[i] = needed[i] ? m++ : -1;
+      const pi = par[i];
+      if (pi < 0 || bot[i] < 0) continue;
+      const a = ka(i);
+      if (needed[pi]) { w[i] = a; top[i] = pi; }
+      else {
+        const d = eg[pi];
+        eg[i] -= a * a / d; er[i] += a * er[pi] / d;
+        w[i] = w[pi] * a / d; top[i] = top[pi];
+      }
+      if (!needed[i]) {
+        const T = top[i], d = eg[i];
+        eg[T] -= w[i] * w[i] / d; er[T] += w[i] * er[i] / d;
+      }
+    }
+
+    // 3) 남길 노드끼리의 연립방정식
+    const diag = new Float64Array(m), rhs = new Float64Array(m);
+    const off = new Array(m);
+    for (let j = 0; j < m; j++) off[j] = new Map();
+    const link = (a, b, g) => {
+      off[a].set(b, (off[a].get(b) || 0) - g);
+      off[b].set(a, (off[b].get(a) || 0) - g);
+    };
+    for (let k = 0; k < orderLen; k++) {
+      const i = order[k], ri = rid[i];
+      if (!alive[i] || ri < 0) continue;
+      diag[ri] = eg[i]; rhs[ri] = er[i];
+      if (par[i] >= 0) link(ri, rid[top[i]], w[i]);
+    }
+    for (let e = 0; e < this.fCount; e++) link(rid[fa[e]], rid[fb[e]], kap * (fD[e] + G_EPS));
+    const Rc = this.eliminate(m, diag, rhs, off);
+
+    // 4) 대입: 남길 노드 → 사슬(아래에서부터) → 서브트리(위에서부터)
+    acc.fill(0, 0, n);
+    for (let k = 0; k < orderLen; k++) { const i = order[k]; if (alive[i] && needed[i]) R[i] = Rc[rid[i]]; }
+    for (let k = orderLen - 1; k >= 0; k--) {
+      const i = order[k];
+      if (!alive[i] || bot[i] < 0) continue;
+      if (!needed[i]) R[i] = (er[i] + w[i] * R[top[i]] + acc[i]) / eg[i];
+      const pi = par[i];
+      if (pi >= 0 && !needed[pi]) acc[pi] += ka(i) * R[i];
+    }
+    for (let k = 0; k < orderLen; k++) {
+      const i = order[k], pi = par[i];
+      if (!alive[i] || pi < 0) continue;
+      const a = ka(i);
+      if (bot[i] < 0) R[i] = (er[i] + a * R[pi]) / eg[i];
+      Q[i] = a * (R[pi] - R[i]);
+    }
+    for (let e = 0; e < this.fCount; e++) fQ[e] = kap * (fD[e] + G_EPS) * (R[fa[e]] - R[fb[e]]);
+    this.coreSize = m;
+
+    // 싱크가 빼 간 양 h·R' 중 수요를 넘는 몫은 그 노드로 되돌린다 (먼저 R'을 다 읽고 나서)
+    const Rs = sinks.map((v, k) => (k % 4 === 0 ? R[v] : 0));
+    for (let k = 0; k < sinks.length; k += 4) {
+      const node = sinks[k], d = sinks[k + 1], h = sinks[k + 2], who = sinks[k + 3];
+      const out = h * Rs[k], u = Math.min(d, out);
+      R[node] += out - u;
+      if (who.fund !== undefined) who.fund += u;  // 팁: 모아 둔 양분 (군체 합계 pool에 그대로 포함)
+      else {
+        const colony = this.colonies[who.col];
+        who.got = u; who.biomass += u; colony.budget -= u; colony.pool -= u;
+      }
+    }
+  }
+
   // 대칭 양의 정부호 희소 행렬의 가우스 소거 (최소 차수 순서 → 채움이 적다)
   eliminate(m, diag, rhs, off) {
     // 힙 원소는 (차수, 노드)를 숫자 하나로: 차수 * 2^21 + 노드
@@ -705,9 +856,15 @@ class Mycelium {
       this.field[fi] = before - before * p.absorb;
       const a = before - this.field[fi];  // float32에서 실제로 빠진 만큼
       const colony = this.colonies[this.col[i]];
-      // 파산한 군체는 유지비를 못 낸다 → 유지비 흐름이 사라져 굵기가 줄고, 결국 가지치기된다
-      const m = colony.pool > 0 ? p.maintain * (0.5 + D[i]) : 0;
-      bal[i] = m - a;
+      // 파산한 군체(국소: 양분이 바닥난 노드)는 유지비를 못 낸다 → 흐름이 사라져 굵기가 줄고, 결국 가지치기된다
+      let m;
+      if (this.local) {
+        m = Math.min(p.maintain * (0.5 + D[i]), this.R[i] + a);
+        this.R[i] += a - m;
+      } else {
+        m = colony.pool > 0 ? p.maintain * (0.5 + D[i]) : 0;
+        bal[i] = m - a;
+      }
       colony.pool += a - m;
       colony.income += a; colony.cost += m;
       this.ledger.respired += m;
@@ -770,7 +927,8 @@ class Mycelium {
 
     // 수송 & 적응
     if (this.t % 8 === 0) this.rebalanceLoops();
-    if (this.t % p.flowEvery === 0) this.solveFlow();
+    if (this.local) this.translocate();
+    else if (this.t % p.flowEvery === 0) this.solveFlow();
     const n = this.count;
     const Q0 = p.flowScale, mu = p.flowExp;
     const target = (q) => { const r = Math.pow(Math.abs(q) / Q0, mu); return r / (1 + r); };
@@ -890,7 +1048,7 @@ class Mycelium {
     const n = this.count;
     const remap = new Int32Array(n);
     const arrays = [this.x, this.y, this.par, this.col, this.alive, this.isTip,
-      this.nch, this.nfu, this.D, this.Q, this.born, this.owner, this.V, this.Wr, this.pinned];
+      this.nch, this.nfu, this.D, this.Q, this.born, this.owner, this.V, this.Wr, this.pinned, this.R];
     let j = 0;
     for (let i = 0; i < n; i++) {
       if (!this.alive[i]) { remap[i] = -1; continue; }
@@ -923,6 +1081,12 @@ class Mycelium {
     for (const c of this.colonies) pool += c.pool;
     let loopsUsed = 0;
     for (let e = 0; e < this.fCount; e++) if (this.fD[e] > 0.35) loopsUsed++;
+    // 균사 생장 단위 HGU = 전체 균사 길이 / 팁 수 (Trinci 1974). 명시적 균사만 센다 (매트의 가는 균사는 길이가 없다)
+    const { alive, par, x, y } = this;
+    let length = 0;
+    for (let i = 0; i < this.count; i++) {
+      if (alive[i] && par[i] >= 0) length += Math.hypot(x[i] - x[par[i]], y[i] - y[par[i]]);
+    }
     return {
       t: this.t,
       tips: this.tips.length,
@@ -940,6 +1104,9 @@ class Mycelium {
       fruits: this.fruits.filter((f) => f.stage !== STAGE.DONE).length,
       fruitsTotal: this.fruitCount,
       sporeColonies: this.sporeColonies,
+      length,
+      hgu: this.tips.length ? length / this.tips.length : 0,
+      transport: this.p.transport,
     };
   }
 
@@ -951,6 +1118,23 @@ class Mycelium {
   }
 
   // ---------- 균사 매트 ----------
+
+  // 노드 i에서 양분을 꺼내거나 넣는다. 군체 합계 pool은 두 방식 모두 맞춘다.
+  //   전역: 저장고가 하나라 꺼낸 · 넣은 양은 회로의 부하(bal)로만 남는다.  국소: 그 노드의 저장량 R에서 직접.
+  draw(i, amt) {
+    this.colonies[this.col[i]].pool -= amt;
+    if (this.local) this.R[i] -= amt; else this.bal[i] += amt;
+  }
+
+  deposit(i, amt) {
+    this.colonies[this.col[i]].pool += amt;
+    if (this.local) this.R[i] += amt; else this.bal[i] -= amt;
+  }
+
+  // 노드 i에서 지금 쓸 수 있는 양
+  avail(i) {
+    return this.local ? this.R[i] : this.colonies[this.col[i]].pool;
+  }
 
   // 칸 i의 매트 부하를 붙일 군체 o의 노드: 칸의 명시적 노드 → 물려받은 노드 → 뿌리
   loadNode(i, o) {
@@ -964,7 +1148,7 @@ class Mycelium {
 
   // 명시적 오일러 한 걸음. 확산은 이전 tick의 칸 주인으로 막고 열어서 쌍마다 대칭 → Σm 보존 (자람 · 분해만 Σm을 바꾼다)
   stepMat() {
-    const p = this.p, { FW, FH, mat, matNext: next, matOwner: own, ownPrev, matRep, frep, field, bal, col, alive, colonies, ledger } = this;
+    const p = this.p, { FW, FH, mat, matNext: next, matOwner: own, ownPrev, matRep, frep, field, R, col, alive, colonies, ledger } = this;
     const Dmax = Math.min(p.matSpread, MAT_D_MAX), r = p.matGrowth, s = p.matSeed, K = p.matHalfN, cost = p.matCost;
     ownPrev.set(own);
     // 군체마다 퍼짐 계수. 칸 사이 흐름은 두 칸 계수의 평균으로 → 쌍마다 대칭이라 Σm 보존, 평균 ≤ Dmax라 안정 조건도 그대로
@@ -1005,28 +1189,32 @@ class Mycelium {
         if (o < 0) { next[i] = nm; continue; }
         if (seeded) matRep[i] = e;
         const colony = colonies[o], node = this.loadNode(i, o), N = field[i];
-        // 자람 (저장고에서 비용, 그 양분이 이 노드까지 회로로 흘러온다). 결실 중엔 영양 생장을 멈춘다
+        // 자람 (비용은 저장고에서, 그 양분이 이 노드까지 회로로 흘러온다). 결실 중엔 영양 생장을 멈춘다.
+        // 투자 여부는 군체 전체 저장량(신호)으로 정하지만, 국소 수송에서는 이 노드에 실제로 와 있는 양까지만 쓴다
         if (!colony.fruiting && colony.pool > MAT_RESERVE) {
           const g = (r * m * (1 - m) + (seeded ? s * (1 - m) : 0)) * N / (N + K);
           colony.matWant += g * cost;
-          const pay = Math.min(g * cost * colony.matScale, colony.pool - MAT_RESERVE);
-          if (pay > 0) { nm += pay / cost; colony.pool -= pay; bal[node] += pay; }
+          const pay = Math.min(g * cost * colony.matScale, colony.pool - MAT_RESERVE, this.local ? R[node] : Infinity);
+          if (pay > 0) { nm += pay / cost; this.draw(node, pay); }
         }
         // 흡수
         if (m > 0) {
           const before = field[i];
           field[i] = before - before * p.matAbsorb * m;
           const a = before - field[i];
-          colony.pool += a; bal[node] -= a; colony.income += a;
+          this.deposit(node, a); colony.income += a;
           // 유지비 (호흡)
-          if (colony.pool > 0) { const c2 = p.matMaintain * m; colony.pool -= c2; bal[node] += c2; ledger.respired += c2; colony.cost += c2; }
-          // 자가분해: 적자(순수입 < 0)면 그 비율만큼, 파산하면 최대로, 결실 중이면 추가로.
+          if (this.avail(node) > 0) {
+            const c2 = Math.min(p.matMaintain * m, this.local ? R[node] : Infinity);
+            this.draw(node, c2); ledger.respired += c2; colony.cost += c2;
+          }
+          // 자가분해: 적자(순수입 < 0)면 그 비율만큼, 파산하면(국소: 이 노드가 바닥나면) 최대로, 결실 중이면 추가로.
           // 회수한 양분은 이 노드에서 회로로 들어가 줄기 유지비나 버섯으로 흐른다
-          const deficit = colony.pool <= 0 ? 1 : clampv(-colony.netEMA / (colony.costEMA || 1), 0, 1);
+          const deficit = this.avail(node) <= 0 ? 1 : clampv(-colony.netEMA / (colony.costEMA || 1), 0, 1);
           const lam = MAT_STARVE * deficit + (colony.fruiting ? p.fruitAutolysis : 0);
           if (lam > 0) {
             const d = lam * m, back = d * cost * p.recycle;
-            nm -= d; colony.pool += back; bal[node] -= back; ledger.respired += d * cost * (1 - p.recycle);
+            nm -= d; this.deposit(node, back); ledger.respired += d * cost * (1 - p.recycle);
           }
         }
         if (nm < MAT_MIN) { ledger.respired += Math.max(0, nm) * cost; nm = 0; own[i] = -1; matRep[i] = -1; }
@@ -1085,7 +1273,7 @@ class Mycelium {
   }
 
   stepFruits() {
-    const p = this.p, { bal, colonies, ledger } = this;
+    const p = this.p, { colonies } = this;
     for (const c of colonies) {
       c.netEMA += NET_EMA * (c.income - c.cost - c.netEMA);
       if (c.netEMA > c.netPeak) c.netPeak = c.netEMA;
@@ -1107,10 +1295,18 @@ class Mycelium {
       const colony = colonies[f.col];
       if (f.stage === STAGE.GROW) {
         const total = want.get(f.col), avail = Math.max(0, Math.min(colony.pool, colony.budget));
+        const node = f.node >= 0 ? f.node : colony.root;
         const give = total > 0 ? f.demand * Math.min(1, avail / total) : 0;
-        colony.pool -= give; colony.budget -= give; f.biomass += give;
-        bal[f.node >= 0 ? f.node : colony.root] += give;
-        f.stall = give < 1e-4 * f.target ? f.stall + 1 : 0;
+        let got = give;
+        if (this.local) {
+          // 국소 수송: 이번 tick의 수요는 수송 풀이에서 싱크로 끌어온다 → 네트워크가 실어 날라야 자란다 (받은 양은 지난 tick 것)
+          f.want = give;
+          got = f.got || 0;
+        } else {
+          colony.budget -= give; f.biomass += give;
+          this.draw(node, give);
+        }
+        f.stall = got < 1e-4 * f.target ? f.stall + 1 : 0;
         if (f.biomass >= 0.97 * f.target) {
           // 다 자람 → 포자 방출 시작
           f.stage = STAGE.SPORE;
@@ -1203,7 +1399,15 @@ class Mycelium {
     const L = this.ledger;
     const stock = soil + pool + this.netBiomass + mat + fruit + spore;
     const expected = L.input + L.regen - L.respired - L.exported;
-    return { soil, pool, network: this.netBiomass, mat, fruit, spore, stock, expected, err: stock - expected, rel: (stock - expected) / expected };
+    // 국소 수송: 군체 합계 pool이 노드에 실제로 흩어져 있는 양(R + 팁이 모아 둔 양)과 같은지
+    let stored = pool;
+    if (this.local) {
+      stored = 0;
+      for (let i = 0; i < this.count; i++) if (this.alive[i]) stored += this.R[i];
+      for (const tp of this.tips) stored += tp.fund;
+    }
+    return { soil, pool, network: this.netBiomass, mat, fruit, spore, stock, expected, err: stock - expected, rel: (stock - expected) / expected,
+      stored, poolErr: stored - pool };
   }
 }
 

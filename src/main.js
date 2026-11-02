@@ -10,7 +10,7 @@ const fctx = fieldCanvas.getContext('2d');
 const matCanvas = document.createElement('canvas');
 const mctx = matCanvas.getContext('2d');
 
-const ui = { paused: false, speed: 1, tool: 'spore', view: 'colony', showField: true, showMat: true, frame: 0, fieldDirty: true };
+const ui = { paused: false, speed: 1, tool: 'spore', view: 'colony', transport: 'local', showField: true, showMat: true, frame: 0, fieldDirty: true };
 const TUNABLE = ['branch', 'chemo', 'avoid', 'adapt', 'flowExp', 'spontaneous', 'elecRecovery', 'fusionConduct', 'spikeResponse',
   'matGrowth', 'matSpread', 'fruitSat', 'fruitShare'];
 
@@ -34,7 +34,7 @@ const view = { s: 1, ox: 0, oy: 0, zoom: 1, cx: 0, cy: 0 };
 const ZOOM_MAX = 8;
 
 function readParams() {
-  const params = {};
+  const params = { transport: ui.transport };
   for (const k of TUNABLE) params[k] = parseFloat($(k).value);
   return params;
 }
@@ -286,18 +286,20 @@ function drawScope() {
   }
 }
 
-// 시간 경과 배율: 실제 1초에 시뮬레이션 며칠이 지나나 (1 tick = UNITS.minPerTick분)
+// 시간 경과 배율: 실제 1초에 시뮬레이션 며칠이 지나나 (1 tick = 수송 방식별로 보정한 분)
+const simDays = (ticks) => (ticks * UNITS.minPerTick[sim.p.transport]) / 1440;
 const lapse = { t: 0, at: performance.now(), daysPerSec: 0 };
 function updateStats() {
   const now = performance.now();
   if (now - lapse.at > 1000) {
-    const days = ((sim.t - lapse.t) * UNITS.minPerTick) / 1440;
+    const days = simDays(sim.t - lapse.t);
     lapse.daysPerSec = days > 0 ? days / ((now - lapse.at) / 1000) : 0;
     lapse.t = sim.t; lapse.at = now;
   }
   const st = sim.stats();
-  st.day = (sim.t * UNITS.minPerTick) / 1440;
+  st.day = simDays(sim.t);
   st.lapse = lapse.daysPerSec;
+  st.hguMm = st.hgu * UNITS.mmPerPx;
   $('simStats').textContent = t('stats', st, sim.full);
 }
 
@@ -463,6 +465,13 @@ function setView(v) {
   updateLegend();
 }
 document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+// 수송 방식은 저장 양분이 놓인 자리가 달라서 도중에 바꿀 수 없다 → 바꾸면 같은 조건으로 새로 시작
+document.querySelectorAll('[data-transport]').forEach((b) => b.addEventListener('click', () => {
+  if (ui.transport === b.dataset.transport) return;
+  ui.transport = b.dataset.transport;
+  document.querySelectorAll('[data-transport]').forEach((o) => o.classList.toggle('on', o === b));
+  reset();
+}));
 $('matToggle').addEventListener('click', () => {
   ui.showMat = !ui.showMat;
   $('matToggle').textContent = ui.showMat ? '■' : '□';
@@ -663,7 +672,7 @@ function recFrame() {
   c.textBaseline = 'alphabetic';
   c.fillStyle = 'rgba(224, 224, 224, 0.85)';
   c.fillText('DIGITAL FUNGI  ·  BY HEEGUN CHOI', 18 * u, h - 18 * u);
-  const day = `DAY ${((sim.t * UNITS.minPerTick) / 1440).toFixed(1)}`;
+  const day = `DAY ${simDays(sim.t).toFixed(1)}`;
   c.fillText(day, w - 18 * u - c.measureText(day).width, h - 18 * u);
   const sec = (performance.now() - rec.at) / 1000;
   if (ui.frame % 10 === 0) $('rec').textContent = `■ ${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;

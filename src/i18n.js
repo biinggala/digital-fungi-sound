@@ -16,6 +16,8 @@ const I18N = {
     tool: '도구', 'tool.spore': '포자', 'tool.food': '먹이', 'tool.stim': '자극', 'tool.probe': '전극',
     'tool.spore.t': '포자 심기 (1)', 'tool.food.t': '먹이 주기 — 끌어서 칠하기 (2)', 'tool.stim.t': '전기 자극 (3)', 'tool.probe.t': '기록 전극 꽂기 (4)',
     view: '보기', 'view.colony': '군체', 'view.flow': '흐름', soil: '토양',
+    transport: '수송', 'transport.local': '국소', 'transport.global': '전역',
+    'transport.t': '국소: 양분이 균사를 따라 실제로 옮겨 가고, 팁·매트·버섯은 자기 자리에 와 있는 양만 쓴다 · 전역: 군체 저장고 하나를 어디서나 바로 쓴다 (비교용). 바꾸면 새로 시작',
     zoom: '확대', 'zoom.t': '휠 · 핀치로 확대/축소, 끌어서 이동', 'fit.t': '꽉 채우기 ↔ 전체 보기 (F)',
     grow: '성장', elec: '전기',
     'p.speed': '속도', 'p.branch': '분기', 'p.chemo': '화학굴성', 'p.avoid': '자기회피', 'p.adapt': '적응',
@@ -31,7 +33,7 @@ const I18N = {
     'p.fruitSat': '포화 문턱', 'p.fruitSat.t': '최근 300 tick 매트 면적 증가율이 이보다 작거나 순수입이 음수가 되면 (양분 제한 시작) 결실한다',
     'p.fruitShare': '결실 투자', 'p.fruitShare.t': '결실 한 번에 저장 양분의 몇 할을 버섯에 쓰나',
     stats: (s, full) => `${s.day.toFixed(1)}일째 (1초 ≈ ${s.lapse.toFixed(1)}일)   t ${s.t}   군체 ${s.colonies}   팁 ${s.tips}   세그먼트 ${s.nodes}   고리 ${s.fusions}/${s.loopsUsed}   ` +
-      `대치 ${s.clashes}   스파이크 ${s.spikes}   먹이 발견 ${s.foodSignals}   양분 ${s.pool.toFixed(1)}   ` +
+      `대치 ${s.clashes}   스파이크 ${s.spikes}   먹이 발견 ${s.foodSignals}   양분 ${s.pool.toFixed(1)}   HGU ${s.hguMm.toFixed(1)} mm   ` +
       `매트 ${Math.round(s.matCover * 100)}%   버섯 ${s.fruits}/${s.fruitsTotal}` + (s.sporeColonies ? `   포자 군체 ${s.sporeColonies}` : '') + (full ? '   용량 가득' : ''),
 
     sound: '소리', soundOn: '소리 켜기', soundOnDone: '소리 켜짐', 'soundOn.t': '브라우저는 클릭한 뒤에만 소리를 낼 수 있다',
@@ -74,6 +76,8 @@ const I18N = {
     tool: 'Tool', 'tool.spore': 'Spore', 'tool.food': 'Food', 'tool.stim': 'Stim', 'tool.probe': 'Probe',
     'tool.spore.t': 'Plant a spore (1)', 'tool.food.t': 'Add food — drag to paint (2)', 'tool.stim.t': 'Electrical stimulus (3)', 'tool.probe.t': 'Place recording electrode (4)',
     view: 'View', 'view.colony': 'Colony', 'view.flow': 'Flow', soil: 'Soil',
+    transport: 'Transport', 'transport.local': 'Local', 'transport.global': 'Global',
+    'transport.t': 'Local: nutrients actually move along the hyphae, and tips, mat and mushrooms use only what has arrived at their spot · Global: one colony store usable anywhere at once (for comparison). Switching restarts',
     zoom: 'Zoom', 'zoom.t': 'Wheel / pinch to zoom, drag to pan', 'fit.t': 'Fill stage ↔ whole world (F)',
     grow: 'Growth', elec: 'Electric',
     'p.speed': 'Speed', 'p.branch': 'Branch', 'p.chemo': 'Chemo', 'p.avoid': 'Avoid', 'p.adapt': 'Adapt',
@@ -89,7 +93,7 @@ const I18N = {
     'p.fruitSat': 'Saturation', 'p.fruitSat.t': 'Fruit when mat area grew less than this over 300 ticks, or net income turned negative (onset of nutrient limitation)',
     'p.fruitShare': 'Invest', 'p.fruitShare.t': 'Share of stored nutrient spent on one flush of mushrooms',
     stats: (s, full) => `day ${s.day.toFixed(1)} (1 s ≈ ${s.lapse.toFixed(1)} d)   t ${s.t}   colonies ${s.colonies}   tips ${s.tips}   segments ${s.nodes}   loops ${s.fusions}/${s.loopsUsed}   ` +
-      `clashes ${s.clashes}   spikes ${s.spikes}   food found ${s.foodSignals}   stored ${s.pool.toFixed(1)}   ` +
+      `clashes ${s.clashes}   spikes ${s.spikes}   food found ${s.foodSignals}   stored ${s.pool.toFixed(1)}   HGU ${s.hguMm.toFixed(1)} mm   ` +
       `mat ${Math.round(s.matCover * 100)}%   mushrooms ${s.fruits}/${s.fruitsTotal}` + (s.sporeColonies ? `   spore colonies ${s.sporeColonies}` : '') + (full ? '   full' : ''),
 
     sound: 'Sound', soundOn: 'Sound on', soundOnDone: 'Sound on', 'soundOn.t': 'Browsers only allow audio after a click',
