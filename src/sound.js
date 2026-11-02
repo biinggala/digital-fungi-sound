@@ -234,10 +234,29 @@ class MyceliumSound {
 
   // 브라우저는 사용자 동작(클릭) 안에서만 소리를 허락한다
   async start() {
+    this.unmuteIOS();
     if (!this.ctx) this.build();
     await this.ctx.resume();
     this.enabled = true;
     this.applyGain();
+  }
+
+  // iOS는 Web Audio를 '벨소리' 채널로 내보내서 무음 스위치가 켜져 있으면 스피커가 침묵한다 (이어폰은 예외).
+  // 오디오 세션을 '재생'으로 바꾸면 음악 앱처럼 무음 스위치를 무시한다. 신형 Safari는 audioSession API,
+  // 구형은 클릭 안에서 소리 없는 <audio>를 반복 재생해 세션을 미디어 재생으로 끌어올리는 방법을 쓴다.
+  unmuteIOS() {
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+    if (this.silentEl) { this.silentEl.play().catch(() => {}); return; }
+    const sr = 8000, n = sr / 2, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+    const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVEfmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    w(36, 'data'); v.setUint32(40, n * 2, true);
+    const el = this.silentEl = document.createElement('audio');
+    el.src = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+    el.loop = true; el.setAttribute('playsinline', ''); el.setAttribute('x-webkit-airplay', 'deny');
+    el.play().catch(() => {});
   }
 
   setVolume(v) { this.volume = v; this.applyGain(); }
