@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Song Mode Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#0e0e0e; --fg:#e0e0e0; --strong:#fff; --muted:#7c7c7c; --muted-2:#565656; --muted-3:#2e2e2e;
+    --bar-on:#d0d0d0; --bar-off:#2c2c2c; --red:#e8553f; --lab:#c9b48a; --eno:#78b3c0; --moss:#5f8f62; --green:#b3c45a; --aphex:#e8553f; --sunra:#b07ad8; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:12px/1.4 'DM Mono', ui-monospace, Menlo, monospace; letter-spacing:.05em; padding:24px 32px 48px; }
+  button { font:inherit; letter-spacing:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer; }
+  h1 { font-size:12px; font-weight:400; color:var(--strong); text-transform:uppercase; letter-spacing:.1em; margin:0 0 4px; }
+  .note { color:var(--muted); max-width:900px; margin:0 0 22px; line-height:1.7; }
+  .tabs { display:flex; gap:26px; margin-bottom:18px; text-transform:uppercase; }
+  .tabs b { color:var(--strong); font-weight:400; border-bottom:1px solid var(--strong); padding-bottom:3px; }
+  .tabs span { color:var(--muted-2); }
+  section { border-top:1px solid var(--muted-3); padding:18px 0 26px; }
+  .sec { display:flex; align-items:baseline; gap:14px; margin-bottom:14px; }
+  .sec .k { color:var(--red); }
+  .sec .t { color:var(--strong); text-transform:uppercase; letter-spacing:.1em; }
+  .sec .d { color:var(--muted); }
+  .lbl { color:var(--muted); text-transform:uppercase; }
+  .grp { color:var(--muted-2); text-transform:uppercase; font-size:10px; letter-spacing:.14em; }
+  .btn { border:1px solid #bdbdbd; border-radius:3px; padding:1px 6px; text-transform:uppercase; }
+  .opt { color:var(--muted-2); text-transform:uppercase; } .opt.on { color:var(--strong); }
+  .meter { display:inline-flex; gap:2px; vertical-align:middle; } .meter i { width:7px; height:12px; border-radius:1.5px; background:var(--bar-off); } .meter i.on { background:var(--bar-on); }
+
+  /* A. PLAY */
+  .play { display:grid; grid-template-columns: auto 230px 1fr; gap:36px; align-items:start; }
+  .quals { display:grid; grid-template-columns:repeat(6, 52px); gap:4px; margin-bottom:8px; }
+  .quals button, .pads button { border:1px solid var(--muted-3); border-radius:3px; height:24px; color:var(--muted); text-transform:uppercase; font-size:11px; }
+  .quals button.on { background:var(--fg); color:#111; border-color:var(--fg); }
+  .pads { display:grid; grid-template-columns:repeat(6, 52px); gap:4px; }
+  .pads button { height:52px; font-size:14px; color:var(--fg); position:relative; }
+  .pads button small { position:absolute; left:5px; top:3px; font-size:9px; color:var(--muted-2); }
+  .pads button.on { background:var(--fg); color:#111; } .pads button.on small { color:#555; }
+  .pads button.rel { border-color:#6a6a6a; }
+  .xy { position:relative; width:230px; height:170px; border:1px solid var(--muted-3); border-radius:3px;
+    background-image: linear-gradient(var(--muted-3) 1px, transparent 1px), linear-gradient(90deg, var(--muted-3) 1px, transparent 1px); background-size:23px 17px; touch-action:none; cursor:crosshair; }
+  .xy .dot { position:absolute; width:22px; height:22px; margin:-11px; border-radius:50%; background:var(--fg); box-shadow:0 0 0 6px rgba(224,224,224,.12); }
+  .xy .tr { position:absolute; width:5px; height:5px; margin:-2.5px; border-radius:50%; background:var(--red); opacity:.6; }
+  .axis { display:flex; justify-content:space-between; color:var(--muted-2); font-size:10px; text-transform:uppercase; margin-top:5px; }
+  .macros { display:grid; grid-template-columns: 90px auto 1fr; row-gap:10px; column-gap:12px; align-items:center; }
+  .macros .src { color:var(--muted-2); font-size:11px; }
+  .follow { margin-top:16px; display:flex; gap:14px; align-items:center; }
+  .chordnow { font-size:22px; color:var(--strong); letter-spacing:.04em; margin-bottom:8px; }
+  .chordnow small { font-size:11px; color:var(--muted); margin-left:8px; }
+
+  /* B. PATCH */
+  .patch { display:grid; grid-template-columns: 110px 130px 70px 120px 120px 1fr; column-gap:18px; row-gap:6px; align-items:center; }
+  .patch .h { color:var(--muted-2); font-size:10px; text-transform:uppercase; letter-spacing:.14em; }
+  .chip { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--muted-3); border-radius:3px; padding:1px 7px; text-transform:uppercase; }
+  .sw { width:8px; height:8px; border-radius:2px; display:inline-block; }
+  .grid { display:inline-flex; gap:8px; } .grid span { color:var(--muted-2); } .grid span.on { color:var(--strong); }
+  .modm { margin-top:26px; display:grid; grid-template-columns: 110px repeat(7, 74px); row-gap:6px; align-items:center; }
+  .modm .h { color:var(--muted-2); font-size:10px; text-transform:uppercase; letter-spacing:.1em; text-align:center; }
+  .modm .r { color:var(--muted); text-transform:uppercase; }
+  .cell { justify-self:center; width:18px; height:18px; border-radius:50%; border:1px solid var(--muted-3); position:relative; }
+  .cell i { position:absolute; inset:3px; border-radius:50%; background:var(--fg); }
+  .cell.neg i { background:var(--eno); }
+
+  /* C. SONG */
+  .song { position:relative; margin-top:22px; }
+  .ruler, .lane { display:grid; grid-template-columns: 90px 1fr; align-items:center; margin-bottom:6px; }
+  .ruler .ticks { display:flex; justify-content:space-between; color:var(--muted-2); font-size:10px; }
+  .blocks { display:flex; gap:3px; height:44px; }
+  .blk { border-radius:3px; padding:5px 7px; overflow:hidden; white-space:nowrap; font-size:11px; display:flex; flex-direction:column; justify-content:space-between; }
+  .blk b { font-weight:400; color:#111; text-transform:uppercase; letter-spacing:.08em; }
+  .blk span { color:rgba(0,0,0,.6); font-size:10px; }
+  .chords { display:flex; gap:3px; height:24px; }
+  .chords span { border:1px solid var(--muted-3); border-radius:3px; display:flex; align-items:center; padding:0 6px; color:var(--fg); font-size:11px; }
+  .trig { display:flex; gap:3px; height:22px; color:var(--muted); font-size:10px; }
+  .trig span { display:flex; align-items:center; padding:0 6px; border-left:1px dashed #555; text-transform:uppercase; }
+  .actlane { position:relative; height:22px; }
+  .act { position:absolute; top:3px; font-size:10px; color:var(--fg); white-space:nowrap; }
+  .act::before { content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--red); margin-right:5px; }
+  .curve { height:40px; }
+  .playhead { position:absolute; top:0; bottom:0; width:1px; background:var(--red); left:calc(90px + 37%); }
+  .playhead::after { content:'▾ BAR 38 · NETWORK'; position:absolute; top:-16px; left:-4px; color:var(--red); font-size:10px; white-space:nowrap; }
+  .bottom { display:flex; gap:12px; margin-top:20px; flex-wrap:wrap; align-items:center; }
+  .bottom .sp { flex:1; }
+  @media (max-width:900px) { .play { grid-template-columns:1fr; } .patch { grid-template-columns: 90px 1fr; } .patch .wide { display:none; } }
+</style>
+</head>
+<body>
+<h1>Digital Fungi ♪ Sound — 곡 만들기 목업</h1>
+<p class="note">정적인 예시 화면입니다. 실제로 연결된 기능은 없고, 코드 패드와 XY 패드만 눌러 볼 수 있습니다. 지금의 SOUND 줄을 세 개의 탭으로 나눈 모습입니다.
+<b style="color:var(--fg);font-weight:400">PLAY</b>는 지금 연주하는 화음과 공간, <b style="color:var(--fg);font-weight:400">PATCH</b>는 어떤 사건이 어떤 악기로 소리 나는지, <b style="color:var(--fg);font-weight:400">SONG</b>은 시간 위에 장면을 배치해 곡 하나를 짜는 곳입니다.</p>
+
+<div class="tabs"><b>A · Play</b><span>B · Patch</span><span>C · Song</span><span style="margin-left:auto">VOL 70 <span class="meter"><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i></i><i></i><i></i></span></span></div>
+
+<!-- A -->
+<section>
+  <div class="sec"><span class="k">A</span><span class="t">Play — 화음 · 공간 · 매크로</span><span class="d">스타일 대신 직접 화음을 잡고, 균사체가 그 화음 안에서 연주한다</span></div>
+  <div class="play">
+    <div>
+      <div class="chordnow" id="cn">G min <small>G · B♭ · D</small></div>
+      <div class="quals" id="quals">
+        <button>maj</button><button class="on">min</button><button>7</button><button>maj7</button><button>m7</button><button>sus4</button>
+        <button>add9</button><button>m9</button><button>dim</button><button>aug</button><button>6/9</button><button>quartal</button>
+      </div>
+      <div class="pads" id="pads"></div>
+      <div class="follow"><span class="lbl">Chord</span><button class="opt on">Hold</button><button class="opt">Follow net</button><button class="opt">Progression</button></div>
+    </div>
+    <div>
+      <div class="lbl" style="margin-bottom:6px">Space</div>
+      <div class="xy" id="xy"><div class="dot" id="dot" style="left:65%;top:30%"></div></div>
+      <div class="axis"><span>dry</span><span>delay →</span></div>
+      <div class="axis"><span>↑ reverb</span><span style="color:var(--red)">● 녹화된 움직임</span></div>
+    </div>
+    <div>
+      <div class="lbl" style="margin-bottom:10px">Macros <span style="color:var(--muted-2)">· 오른쪽 = 무엇이 자동으로 움직이는지</span></div>
+      <div class="macros">
+        <span>Density</span><span class="meter"><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i></i><i></i><i></i><i></i><i></i></span><span class="src">← 팁 수</span>
+        <span>Tension</span><span class="meter"><i class=on></i><i class=on></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="src">← 충돌(clashes) · 반음 비율</span>
+        <span>Bright</span><span class="meter"><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i></i><i></i><i></i></span><span class="src">← 양분 흐름</span>
+        <span>Groove</span><span class="meter"><i class=on></i><i class=on></i><i class=on></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="src">free ↔ 16분 격자 · swing 56%</span>
+        <span>Tempo</span><span><b style="font-weight:400;color:var(--strong)">88</b> <span class="lbl">bpm</span></span><span class="src">고정 · 또는 ← 스파이크 속도</span>
+        <span>Texture</span><span class="meter"><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="src">clean ↔ tape · crush</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- B -->
+<section>
+  <div class="sec"><span class="k">B</span><span class="t">Patch — 사건 → 소리, 하나씩</span><span class="d">스타일 = 이 표를 한 번에 채우는 프리셋. 칸 하나만 바꿔도 된다</span></div>
+  <div class="patch">
+    <span class="h">사건</span><span class="h">악기</span><span class="h">옥타브</span><span class="h">격자</span><span class="h wide">확률 · 음량</span><span class="h wide">음 고르기</span>
+    <span>Growth</span><span class="chip"><i class="sw" style="background:var(--green)"></i>Kalimba</span><span>0</span><span class="grid"><span>free</span><span>1/4</span><span class="on">1/8</span><span>16</span></span><span class="wide"><span class="meter"><i class=on></i><i class=on></i><i class=on></i><i></i><i></i></span> <span class="meter"><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i></i></span></span><span class="wide lbl">화음 음 · 팁 x위치 → 음높이</span>
+    <span>Food found</span><span class="chip"><i class="sw" style="background:var(--aphex)"></i>Acid</span><span>−1</span><span class="grid"><span>free</span><span>1/4</span><span>1/8</span><span class="on">16</span></span><span class="wide"><span class="meter"><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i class=on></i></span> <span class="meter"><i class=on></i><i class=on></i><i class=on></i><i></i><i></i></span></span><span class="wide lbl">근음 → 아르페지오 4음</span>
+    <span>Spike</span><span class="chip"><i class="sw" style="background:var(--aphex)"></i>Snare</span><span>·</span><span class="grid"><span>free</span><span>1/4</span><span>1/8</span><span class="on">16</span></span><span class="wide"><span class="meter"><i class=on></i><i class=on></i><i></i><i></i><i></i></span> <span class="meter"><i class=on></i><i class=on></i><i class=on></i><i></i><i></i></span></span><span class="wide lbl">무음정 · 연타 = 전파 속도</span>
+    <span>Reentry ♥</span><span class="chip"><i class="sw" style="background:var(--lab)"></i>Kick</span><span>−2</span><span class="grid"><span>free</span><span class="on">1/4</span><span>1/8</span><span>16</span></span><span class="wide"><span class="meter"><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i class=on></i></span> <span class="meter"><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i></i></span></span><span class="wide lbl">고리 주기 → 템포 동기</span>
+    <span>Mushroom</span><span class="chip"><i class="sw" style="background:var(--eno)"></i>E-piano</span><span>+1</span><span class="grid"><span class="on">free</span><span>1/4</span><span>1/8</span><span>16</span></span><span class="wide"><span class="meter"><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i class=on></i></span> <span class="meter"><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i class=on></i></span></span><span class="wide lbl">멜로디 다음 음 · 코드 진행 한 칸</span>
+    <span>Drone</span><span class="chip"><i class="sw" style="background:var(--moss)"></i>Tape pad</span><span>−2</span><span class="grid"><span class="on">hold</span></span><span class="wide"><span class="meter"><i class=on></i><i class=on></i><i class=on></i><i></i><i></i></span></span><span class="wide lbl">현재 화음 근음</span>
+    <span>Pad · Front</span><span class="chip"><i class="sw" style="background:var(--sunra)"></i>Hammond</span><span>0</span><span class="grid"><span class="on">hold</span></span><span class="wide"><span class="meter"><i class=on></i><i class=on></i><i></i><i></i><i></i></span></span><span class="wide lbl">고리 수 → 화음 음 개수</span>
+  </div>
+
+  <div class="modm">
+    <span class="grp">mod 행렬</span><span class="h">Filter</span><span class="h">Tempo</span><span class="h">Density</span><span class="h">Reverb</span><span class="h">Pitch ↑</span><span class="h">Swing</span><span class="h">Chord →</span>
+    <span class="r">Tips</span><span class="cell"></span><span class="cell"></span><span class="cell"><i style="inset:2px"></i></span><span class="cell"></span><span class="cell"></span><span class="cell"></span><span class="cell"></span>
+    <span class="r">Flow</span><span class="cell"><i style="inset:4px"></i></span><span class="cell"><i style="inset:6px"></i></span><span class="cell"></span><span class="cell"></span><span class="cell"></span><span class="cell"></span><span class="cell"></span>
+    <span class="r">Loops</span><span class="cell"></span><span class="cell"></span><span class="cell"></span><span class="cell neg"><i style="inset:5px"></i></span><span class="cell"></span><span class="cell"><i style="inset:6px"></i></span><span class="cell"></span>
+    <span class="r">Spikes/s</span><span class="cell"></span><span class="cell"><i style="inset:3px"></i></span><span class="cell"></span><span class="cell"></span><span class="cell"><i style="inset:6px"></i></span><span class="cell"></span><span class="cell"></span>
+    <span class="r">Mat %</span><span class="cell neg"><i style="inset:4px"></i></span><span class="cell"></span><span class="cell"></span><span class="cell"><i style="inset:3px"></i></span><span class="cell"></span><span class="cell"></span><span class="cell"></span>
+    <span class="r">Mushrooms</span><span class="cell"></span><span class="cell"></span><span class="cell"></span><span class="cell"></span><span class="cell"></span><span class="cell"></span><span class="cell"><i style="inset:2px"></i></span>
+  </div>
+</section>
+
+<!-- C -->
+<section>
+  <div class="sec"><span class="k">C</span><span class="t">Song — 장면을 시간 위에</span><span class="d">장면 = 지금 설정의 스냅샷. 넘어가는 조건은 마디 수 또는 균사체 상태</span></div>
+  <div class="song">
+    <div class="ruler"><span class="grp">bar</span><div class="ticks"><span>1</span><span>16</span><span>32</span><span>48</span><span>64</span><span>80</span><span>96</span><span>112</span></div></div>
+    <div class="lane"><span class="lbl">Scene</span>
+      <div class="blocks">
+        <div class="blk" style="flex:16;background:var(--eno)"><b>Spore</b><span>Eno · drone</span></div>
+        <div class="blk" style="flex:20;background:var(--green)"><b>Explore</b><span>Green · kalimba</span></div>
+        <div class="blk" style="flex:28;background:var(--aphex)"><b>Network</b><span>Aphex · 16ths</span></div>
+        <div class="blk" style="flex:24;background:var(--sunra)"><b>Fruit</b><span>Ra · hammond</span></div>
+        <div class="blk" style="flex:24;background:var(--moss)"><b>Decay</b><span>Moss · koto</span></div>
+      </div></div>
+    <div class="lane"><span class="lbl">Chords</span>
+      <div class="chords">
+        <span style="flex:8">Gm</span><span style="flex:8">E♭maj7</span>
+        <span style="flex:5">Gm</span><span style="flex:5">Cm</span><span style="flex:5">E♭</span><span style="flex:5">D7</span>
+        <span style="flex:7">Gm9</span><span style="flex:7">B♭</span><span style="flex:7">F</span><span style="flex:7">E♭</span>
+        <span style="flex:24">버섯마다 → 다음 화음</span>
+        <span style="flex:24">Gsus4 (hold)</span>
+      </div></div>
+    <div class="lane"><span class="lbl">Next when</span>
+      <div class="trig">
+        <span style="flex:16">16 bars</span><span style="flex:20">tips ≥ 60</span><span style="flex:28">loops ≥ 12 or 28 bars</span><span style="flex:24">first mushroom +24</span><span style="flex:24">fade 24 bars → end</span>
+      </div></div>
+    <div class="lane"><span class="lbl">Actions</span>
+      <div class="actlane">
+        <span class="act" style="left:0%">spore ×3 · center</span>
+        <span class="act" style="left:15%">food ring</span>
+        <span class="act" style="left:39%">stim ϟ at bar 48</span>
+        <span class="act" style="left:63%">mat 100%</span>
+        <span class="act" style="left:84%">soil off</span>
+      </div></div>
+    <div class="lane"><span class="lbl">Energy</span>
+      <svg class="curve" viewBox="0 0 1000 40" preserveAspectRatio="none" width="100%"><path d="M0 36 C 80 34, 140 30, 143 28 S 300 18, 320 16 S 560 4, 600 6 S 760 20, 790 22 S 950 36, 1000 38" fill="none" stroke="#7c7c7c" stroke-width="1.5"/><path d="M0 36 C 80 34, 140 30, 143 28 S 300 18, 320 16 S 560 4, 600 6 S 760 20, 790 22 S 950 36, 1000 38 L1000 40 L0 40Z" fill="rgba(224,224,224,.06)"/></svg></div>
+    <div class="playhead"></div>
+  </div>
+  <div class="bottom">
+    <button class="btn">+ Capture scene</button><button class="opt on">Loop scene</button><button class="opt">Play song</button>
+    <span class="lbl">seed</span><span>4F2A·91</span>
+    <span class="sp"></span>
+    <span class="lbl">Export</span><button class="btn">WAV</button><button class="btn">Stems ×9</button><button class="btn">MIDI</button><button class="btn">Share link</button>
+  </div>
+</section>
+
+<script>
+  // 5도권 순서로 12개: 위 줄 반시계(플랫), 아래 줄 시계(샵). 지금 조성 Gm 주변 관계 표시
+  const names = ['D♭','A♭','E♭','B♭','F','C','G','D','A','E','B','F♯'];
+  const rel = new Set(['E♭','B♭','C','D','F']);  // Gm 조의 이웃 화음
+  const pads = document.getElementById('pads');
+  names.forEach((n, i) => {
+    const b = document.createElement('button');
+    b.innerHTML = `<small>${i - 6 >= 0 ? '+' : ''}${i - 6}</small>${n}`;
+    if (n === 'G') b.classList.add('on'); else if (rel.has(n)) b.classList.add('rel');
+    b.onclick = () => { pads.querySelectorAll('button').forEach(x => x.classList.remove('on')); b.classList.add('on'); show(); };
+    pads.appendChild(b);
+  });
+  const quals = document.getElementById('quals');
+  quals.querySelectorAll('button').forEach(b => b.onclick = () => { quals.querySelectorAll('button').forEach(x => x.classList.remove('on')); b.classList.add('on'); show(); });
+  const IV = { maj:[0,4,7], min:[0,3,7], '7':[0,4,7,10], maj7:[0,4,7,11], m7:[0,3,7,10], sus4:[0,5,7], add9:[0,4,7,14], m9:[0,3,7,10,14], dim:[0,3,6], aug:[0,4,8], '6/9':[0,4,7,9,14], quartal:[0,5,10,15] };
+  const CH = ['C','D♭','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
+  function show() {
+    const r = pads.querySelector('.on').textContent.replace(/^[+-]?\d+/, ''), q = quals.querySelector('.on').textContent;
+    const root = CH.indexOf(r);
+    document.getElementById('cn').innerHTML = `${r} ${q} <small>${IV[q].map(s => CH[(root + s) % 12]).join(' · ')}</small>`;
+  }
+  // XY 패드: 끌면 점이 따라오고, 지나간 자리를 '녹화된 움직임'으로 남긴다
+  const xy = document.getElementById('xy'), dot = document.getElementById('dot');
+  let down = false;
+  const mv = e => { if (!down) return; const r = xy.getBoundingClientRect();
+    const x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+    dot.style.left = x * 100 + '%'; dot.style.top = y * 100 + '%';
+    const t = document.createElement('i'); t.className = 'tr'; t.style.left = x * 100 + '%'; t.style.top = y * 100 + '%'; xy.appendChild(t);
+    if (xy.children.length > 80) xy.children[1].remove(); };
+  xy.onpointerdown = e => { down = true; xy.setPointerCapture(e.pointerId); mv(e); };
+  xy.onpointermove = mv; xy.onpointerup = () => down = false;
+</script>
+</body>
+</html>
