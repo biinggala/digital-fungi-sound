@@ -122,6 +122,14 @@ const SEND = {
 
 // 아날로그 녹음 버스를 지나는 악기 (Sun Ra 1963): 패너 → 포화 → 좁은 대역 → 와우 · 플러터 → 스프링 리버브 · 방
 const ANALOG_INST = new Set(['hammond', 'clavioline', 'logdrum', 'timpani', 'smallBell']);
+
+// MIDI 출력: 믹서 채널마다 MIDI 채널 하나 (0부터 → MIDI 1 ~ 9). 공간 채널은 음이 없다
+const MIDI_CH = { grow: 0, food: 1, start: 2, tok: 3, heart: 4, probe: 5, drone: 6, pad: 7, fruit: 8 };
+// 음높이가 없는 악기(북 · 잡음)는 채널마다 고정 음 (GM 타악기 번호에 가깝게: 36 킥, 38 스네어, 42 하이햇)
+const MIDI_FIXED = { grow: 42, food: 72, start: 36, tok: 38, heart: 36, probe: 76, fruit: 60 };
+const UNPITCHED = new Set(['thump', 'kick', 'crackle', 'plop', 'kick909', 'snare', 'hat', 'softKick', 'timpani']);
+// 음 길이 (초): 울림이 긴 악기는 길게
+const MIDI_LEN = { bell: 1.2, epiano: 1.6, glass: 1.4, bloom: 1.6, koto: 1.2, kalimba: 0.8, hammond: 0.6, clavioline: 0.5 };
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const MAX_VOICES = 32;                                   // 사건음 전체 동시 발음 상한
 const LIMIT = { bell: 6, stim: 4, pluck: 4, plop: 2, pulse: 8, heart: 6, grain: 10, fruit: 16 };  // 종류별 상한: 한 종류가 나머지를 굶기지 않게
@@ -720,6 +728,61 @@ class MyceliumSound {
       v.sawtooth.g.gain.setTargetAtTime(g * tp.saw * 0.6, now, tp.fade);
     });
     this.info.pad = voices;
+    if (this.midi) {
+      // 드론: 지금 드론 음 하나, 화음: 쌓인 음들 (음량 0이면 끈다). 흐름 → CC74(밝기)
+      const rd = -Math.max(0, this.droneStep), degs = this.padDegrees;
+      this.midiHold('drone', nodes && this.vol.drone > 0 ? [this.note(-12, rd)] : []);
+      this.midiHold('pad', this.vol.pad > 0 ? degs.slice(0, voices).map((d) => this.note(-12, rd + d)) : []);
+      this.midiCC('drone', 74, flowLv);
+    }
+  }
+
+  // ---------- MIDI ----------
+
+  // out: Web MIDI 출력 포트 (MIDIOutput) 또는 null
+  setMidi(out) {
+    this.midiAllOff();
+    this.midi = out;
+    this.midiHeld = { drone: [], pad: [] };
+    this.midiLastCC = {};
+    if (out && this.sim) this.measureShape(this.sim);
+  }
+
+  midiSend(msg, at) {
+    try { this.midi.send(msg, at); } catch (e) { /* 포트가 사라졌으면 조용히 */ }
+  }
+
+  // 사건 하나 → 음 하나. 소리와 같은 순간에 나가도록 AudioContext 시각을 MIDI 타임스탬프(performance.now 기준)로 옮긴다
+  midiNote(ch, inst, f, amp, t) {
+    if (!this.midi || MIDI_CH[ch] === undefined) return;
+    const c = MIDI_CH[ch];
+    const n = UNPITCHED.has(inst) || !(f > 20) ? MIDI_FIXED[ch] : clamp(Math.round(69 + 12 * Math.log2(f / 440)), 0, 127);
+    const vel = clamp(Math.round(127 * Math.sqrt(amp / 0.55)), 15, 127);
+    const at = performance.now() + Math.max(0, t - this.ctx.currentTime) * 1000;
+    this.midiSend([0x90 | c, n, vel], at);
+    this.midiSend([0x80 | c, n, 0], at + (MIDI_LEN[inst] || 0.25) * 1000);
+  }
+
+  // 지속음: 원하는 음 목록과 지금 눌린 음을 비교해 바뀐 것만 떼고 누른다
+  midiHold(ch, notes) {
+    const c = MIDI_CH[ch], want = notes.map((m) => clamp(Math.round(m), 0, 127));
+    const held = this.midiHeld[ch];
+    for (const n of held) if (!want.includes(n)) this.midiSend([0x80 | c, n, 0]);
+    for (const n of want) if (!held.includes(n)) this.midiSend([0x90 | c, n, 70]);
+    this.midiHeld[ch] = want;
+  }
+
+  // 컨트롤 체인지 (0 ~ 1 → 0 ~ 127), 값이 바뀔 때만
+  midiCC(ch, cc, v) {
+    const key = ch + ':' + cc, val = clamp(Math.round(v * 127), 0, 127);
+    if (this.midiLastCC[key] === val) return;
+    this.midiLastCC[key] = val;
+    this.midiSend([0xB0 | MIDI_CH[ch], cc, val]);
+  }
+
+  midiAllOff() {
+    if (!this.midi) return;
+    for (let c = 0; c < 9; c++) { this.midiSend([0xB0 | c, 123, 0]); this.midiSend([0xB0 | c, 120, 0]); }
   }
 
   listenElectric(sim, now) {
@@ -738,6 +801,7 @@ class MyceliumSound {
     this.frontNoise.gain.setTargetAtTime(0.22 * lv * lv * tp.noise, now, 0.06);
     this.frontBand.frequency.setTargetAtTime(tp.lo + (tp.hi - tp.lo) * lv, now, 0.06);
     this.humGain.gain.setTargetAtTime(0.07 * lv * tp.hum, now, 0.1);
+    if (this.midi && this.frame % 3 === 0) this.midiCC('pad', 1, lv);  // 파면 크기 → CC1 (모듈레이션)
     this.padOut.gain.setTargetAtTime(1 + tp.swell * lv, now, 0.8);
     if (front) this.frontPan.pan.setTargetAtTime(this.pan(sx / front), now, 0.08);
 
@@ -896,6 +960,7 @@ class MyceliumSound {
 
   // 동시 발음 상한: 전체 상한 + 종류별 상한. 넘치면 그 소리는 그냥 건너뛴다
   play(kind, inst, x, f, amp, t, opt = {}) {
+    if (this.tapCh) this.midiNote(this.tapCh, inst, f, amp, t);  // MIDI는 음소거 · 발음 상한과 상관없이 보낸다
     if (!this.audible || this.active >= MAX_VOICES || this.activeBy[kind] >= LIMIT[kind]) return;
     this.active++;
     this.activeBy[kind]++;

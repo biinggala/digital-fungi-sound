@@ -706,6 +706,38 @@ $('rec').addEventListener('click', () => {
   if (rec.mr) stopRec(); else startRec();
 });
 
+// ---------- MIDI ----------
+// 연결을 누르면 Web MIDI 권한을 받고 출력 포트를 고르게 한다. 고른 포트 이름은 브라우저에 기억 (다음엔 같은 이름이 있으면 자동으로)
+const midiOK = !embedded && typeof navigator.requestMIDIAccess === 'function';
+let midiAccess = null;
+function fillMidi() {
+  const sel = $('midiOut'), outs = [...midiAccess.outputs.values()];
+  let saved = '';
+  try { saved = localStorage.getItem('fungi.midiOut') || ''; } catch (e) { /* 없음 */ }
+  sel.innerHTML = '';
+  sel.add(new Option(outs.length ? t('midi.off') : t('midi.none'), ''));
+  for (const o of outs) sel.add(new Option(o.name, o.id));
+  const keep = outs.find((o) => o.id === sound.midi?.id) || outs.find((o) => o.name === saved);
+  sel.value = keep ? keep.id : '';
+  selectMidi(sel.value, false);
+}
+function selectMidi(id, remember = true) {
+  const out = id ? midiAccess.outputs.get(id) : null;
+  sound.setMidi(out || null);
+  $('midiOut').classList.toggle('on', !!out);
+  if (remember) { try { localStorage.setItem('fungi.midiOut', out ? out.name : ''); } catch (e) { /* 이번만 */ } }
+}
+$('midiBtn').addEventListener('click', async () => {
+  if (!midiOK) return;
+  try { midiAccess = await navigator.requestMIDIAccess(); }
+  catch (e) { $('midiBtn').title = t('midi.denied'); return; }
+  midiAccess.onstatechange = fillMidi;  // 장치를 꽂거나 뽑으면 목록을 다시
+  $('midiBtn').hidden = true;
+  $('midiOut').hidden = false;
+  fillMidi();
+});
+$('midiOut').addEventListener('change', (e) => selectMidi(e.target.value));
+
 // ---------- 한/영 ----------
 
 // 정적 문구는 applyI18n, 상태에 따라 바뀌는 문구와 선택지는 여기서 다시 쓴다
@@ -714,6 +746,9 @@ function relabel() {
   $('pause').textContent = ui.paused ? `▸ ${t('play')}` : `❚❚ ${t('pause')}`;
   $('reset').textContent = `↺ ${t('reset')}`;
   if (!rec.mr) $('rec').textContent = `● ${t('rec')}`;
+  $('midiBtn').disabled = !midiOK;
+  if (!midiOK) $('midiBtn').title = t('midi.na');
+  if (midiAccess) { const v = $('midiOut').value; fillMidi(); $('midiOut').value = v; }
   $('rec').disabled = !recOK;
   if (!recOK) $('rec').title = t('rec.na');
   $('soundOn').textContent = `♪ ${t(sound.enabled ? 'soundOnDone' : 'soundOn')}`;
