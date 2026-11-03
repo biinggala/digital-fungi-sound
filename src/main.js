@@ -570,11 +570,11 @@ $('copyMail').addEventListener('click', async () => {
 });
 $('helpBtn').addEventListener('click', toggleHelp);
 
-// 소리: 버튼 하나로 켜고 끈다. 첫 클릭은 오디오를 시작하고 (브라우저는 클릭 안에서만 허락), 그 뒤로는 음소거를 오간다
+// 소리: 버튼 하나로 켜고 끈다 (글자 = 누르면 할 일). 첫 클릭은 오디오를 시작하고 (브라우저는 클릭 안에서만 허락), 그 뒤로는 음소거를 오간다
 function soundLive() { return sound.enabled && !sound.muted; }
 function paintSound() {
-  $('soundOn').textContent = `♪ ${t(soundLive() ? 'soundOnDone' : 'soundOff')}`;
-  $('soundOn').classList.toggle('is-off', !soundLive());
+  // 버튼 글자는 누르면 할 일: 소리가 나고 있으면 '끄기', 아니면 '켜기'
+  $('soundOn').textContent = `♪ ${t(soundLive() ? 'soundOffAct' : 'soundOn')}`;
 }
 async function toggleSound() {
   if (!sound.enabled) await sound.start();
