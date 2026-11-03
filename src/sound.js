@@ -96,7 +96,8 @@ const RE_PERIOD = 400;       // tick: 한 지점이 이보다 짧은 주기로 �
 const RE_CV = 0.3;
 const HEARTS = 2;            // 재진입 지점 중 가장 규칙적인 두 곳만 심장 박동을 친다 (나머지는 '톡'만)
 const SHAPE_EVERY = 15;      // 프레임: 모양(크기·굵기·흐름·고리) 특징은 천천히 변하므로 가끔만 잰다
-const DRONE_STEPS = 8;
+const DRONE_STEPS = 8;       // 군체 크기 단계 수 (두 배마다 한 단계)
+const XFADE = 3.5;           // 초: 드론 · 화음 음이 바뀔 때 옛 음과 새 음이 엇갈려 사라지고 피어나는 시간
 const MOTOR_FRONT = 5;       // 파면 세그먼트가 이보다 많으면 '파동이 지나가는 중' (모터 스타일의 킥이 돈다)       // 드론이 내려갈 수 있는 음계 칸 수
 
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
@@ -222,7 +223,14 @@ class MyceliumSound {
   // 1 · 3 · 5도에 해당하는 음계 칸 (화음 모드에서는 구성음 0 · 1 · 2번째)
   get triad() { return this.chordOn ? [0, 1, 2] : [0, 2, 4]; }
   // 드론 칸: 음계 모드에서는 군체가 클수록 아래로 걷고, 화음 모드에서는 늘 근음 (화음이 바뀌는 것은 진행이 맡는다)
-  get rd() { return this.chordOn ? 0 : -Math.max(0, this.droneStep); }
+  get rd() { return this.chordOn ? 0 : this.dronePath[clamp(this.droneStep, 0, this.dronePath.length - 1)]; }
+  // 군체가 두 배가 될 때마다 드론이 내려가는 길 (음계 칸): 으뜸음 → 5도 아래 → 옥타브 아래 → 그 5도 아래.
+  // 한 번에 완전4도 · 완전5도씩만 움직여서 반음 · 온음으로 미끄러지는 불길한 움직임이 없다.
+  // 완전5도(7반음 ± ½)가 없는 음계(온음 음계)는 옥타브로만
+  get dronePath() {
+    const n = this.scale.length, f = this.fifth;
+    return Math.abs(this.scale[f] - 7) <= 0.5 ? [0, f - n, -n, f - 2 * n] : [0, -n];
+  }
 
   // 기준음(으뜸음 또는 화음 근음) + reg 반음에서 시작해 음계 k번째 칸 (음수면 아래로). 패치의 pitch가 칸을 옮긴다
   note(reg, k) {
@@ -237,10 +245,27 @@ class MyceliumSound {
     for (let k = 1; k < s.length; k++) if (Math.abs(s[k] - 7) < Math.abs(s[best] - 7)) best = k;
     return best;
   }
-  // 굵은 고리가 늘수록 이 순서로 쌓이는 화음 (드론 위 음계 칸): 옥타브, 옥타브+5도, 2옥타브, 그 위 2·3칸, 2옥타브+5도
-  get padDegrees() {
-    const n = this.scale.length, f = this.fifth;
-    return [n, n + f, 2 * n, 2 * n + 1, 2 * n + 2, 2 * n + f];
+  // 굵은 고리가 늘수록 이 순서로 쌓이는 화음 성부의 음정 (드론 root 위 반음): 옥타브, 5도, 2옥타브, 3도, 2옥타브+5도, 색채음.
+  // 지금 음계(화음 모드면 화음 구성음) 안에서 협화 음정만 고른다 — 3도는 장 → 단 → sus4 → sus2, 색채음은 6 → ♭7 → 9 → 7 순.
+  // 음계 모드에서는 반음(단2도)과 3온음을 쓰지 않는다. 예전에는 '2옥타브 위 음계 한 칸 · 두 칸'을 쌓아서, 반음이 있는 음계(인 음계 · 반음계)에서 반음 덩어리가 생겼다
+  padIntervals(root) {
+    const rel = this.scale.map((x) => (((this.base + x - root) % 12) + 12) % 12);
+    const pick = (...ts) => { for (const t of ts) { const r = rel.find((v) => Math.abs(v - t) <= 0.5); if (r !== undefined) return r; } return null; };
+    // 화음 모드에서는 고른 화음이 곧 뜻이므로 감 · 증5도도 5도 자리에 쓴다 (dim · aug)
+    const fifth = (this.chordOn ? pick(7, 6, 8, 5) : pick(7, 5)) ?? 12, third = pick(4, 3, 5, 2) ?? fifth, color = pick(9, 10, 2, 11) ?? 12;
+    return [12, 12 + fifth, 24, 24 + third, 24 + fifth, 24 + color];
+  }
+  // m(MIDI)에서 가장 가까운 지금 음계 음, 그리고 m보다 위의 가장 가까운 음계 음
+  snap(m) { return this.scaleNear(m, (p) => Math.abs(p - m)); }
+  above(m) { return this.scaleNear(m, (p) => (p > m + 0.5 ? p - m : Infinity)); }
+  scaleNear(m, cost) {
+    let best = m, c = Infinity;
+    const o0 = Math.floor((m - this.base) / 12);
+    for (let o = o0 - 1; o <= o0 + 1; o++) for (const x of this.scale) {
+      const p = this.base + x + 12 * o, k = cost(p);
+      if (k < c) { c = k; best = p; }
+    }
+    return best;
   }
 
   // 브라우저는 사용자 동작(클릭) 안에서만 소리를 허락한다
@@ -499,14 +524,18 @@ class MyceliumSound {
     this.sawGain.connect(this.droneFilter);
     this.subGain = ctx.createGain();
     this.subGain.connect(this.droneFilter);
-    this.droneOsc = [];
-    for (const [type, detune, dest] of [['sine', 0, this.droneFilter], ['sine', -1200, this.subGain],
-      ['sawtooth', -7, this.sawGain], ['sawtooth', 7, this.sawGain]]) {
-      const o = ctx.createOscillator();
-      o.type = type; o.detune.value = detune; o.frequency.value = 147;
-      o.connect(dest); o.start();
-      this.droneWobble.connect(o.detune);
-      this.droneOsc.push(o);
+    // 같은 드론을 두 벌(A · B). 음이 바뀌면 쉬던 벌을 새 음에 맞추고 서로 엇갈려 페이드한다 (crossTo)
+    this.drone = { on: 0, pitch: null, osc: [[], []], fade: [[], []] };
+    for (const b of [0, 1]) {
+      for (const [type, detune, dest] of [['sine', 0, this.droneFilter], ['sine', -1200, this.subGain],
+        ['sawtooth', -7, this.sawGain], ['sawtooth', 7, this.sawGain]]) {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = type; o.detune.value = detune; o.frequency.value = 147;
+        g.gain.value = b ? 0 : 1;
+        o.connect(g).connect(dest); o.start();
+        this.droneWobble.connect(o.detune);
+        this.drone.osc[b].push(o); this.drone.fade[b].push(g);
+      }
     }
 
     // 화음: 굵은 고리 수 → 쌓이는 음 수. 삼각파 줄과 톱니파 줄을 섞는다. 파면이 크면 부푼다(swell)
@@ -520,16 +549,23 @@ class MyceliumSound {
     this.padOut.connect(this.padClean); this.padOut.connect(this.padAnalog);
     this.out(this.padClean, 0.7, 0.3);
     this.padAnalog.connect(this.analogIn);
+    // 성부마다 두 벌(A · B): 음이 바뀌는 성부만 엇갈려 페이드하고, 같은 음(공통음)은 그대로 울린다
     this.pad = Array.from({ length: 6 }, (_, k) => {
-      const v = {};
+      const v = { on: 0, pitch: null, osc: [[], []], fade: [[], []] };
       for (const type of ['triangle', 'sawtooth']) {
-        const o = ctx.createOscillator(), g = ctx.createGain();
-        o.type = type; o.frequency.value = 294;
-        o.detune.value = (k % 2 ? 1 : -1) * (3 + k);   // 살짝 어긋나 맥놀이가 생기게
-        this.padWobble.connect(o.detune);
+        const g = ctx.createGain();   // 이 성부 · 파형의 음량 (measureShape)
         g.gain.value = 0;
-        o.connect(g).connect(this.padFilter); o.start();
-        v[type] = { o, g };
+        g.connect(this.padFilter);
+        for (const b of [0, 1]) {
+          const o = ctx.createOscillator(), fd = ctx.createGain();
+          o.type = type; o.frequency.value = 294;
+          o.detune.value = (k % 2 ? 1 : -1) * (3 + k);   // 살짝 어긋나 맥놀이가 생기게
+          this.padWobble.connect(o.detune);
+          fd.gain.value = b ? 0 : 1;
+          o.connect(fd).connect(g); o.start();
+          v.osc[b].push(o); v.fade[b].push(fd);
+        }
+        v[type] = { g };
       }
       return v;
     });
@@ -700,15 +736,41 @@ class MyceliumSound {
     if (!this.ctx || this.droneStep < 0) return;
     const now = this.ctx.currentTime, rd = this.rd;
     const root = this.note(-12, rd);
-    for (const o of this.droneOsc) o.frequency.setTargetAtTime(mtof(root), now, 1.5);
-    const degs = this.padDegrees;
+    this.crossTo(this.drone, root);
+    // 화음 성부: 음정(padIntervals)은 그대로, 옥타브는 지금 음에서 가장 가까운 쪽으로 (드론보다 4반음 넘게 위에서).
+    // 그래서 성부들이 함께 평행 이동하지 않고 조금씩 움직이며, 같은 음은 붙잡아 둔다
+    const iv = this.padIntervals(root), used = [];
     this.pad.forEach((v, k) => {
-      const f = mtof(this.note(-12, rd + degs[k]));
-      v.triangle.o.frequency.setTargetAtTime(f, now, 1.5);
-      v.sawtooth.o.frequency.setTargetAtTime(f, now, 1.5);
+      const ideal = root + iv[k], prev = v.pitch ?? ideal;
+      let best = ideal;
+      for (const c of [ideal - 12, ideal + 12]) {
+        if (c <= root + 4) continue;
+        const free = (x) => !used.some((u) => Math.abs(u - x) < 0.5);   // 앞 성부와 같은 음(겹침)은 피한다
+        if ((free(c) && !free(best)) || (free(c) === free(best) && Math.abs(c - prev) < Math.abs(best - prev))) best = c;
+      }
+      used.push(best);
+      this.crossTo(v, best);
     });
-    this.hum.frequency.setTargetAtTime(mtof(this.note(-12, rd + 2 * this.scale.length)), now, 1.5);
+    this.hum.frequency.setTargetAtTime(mtof(this.note(-12, rd + 2 * this.scale.length)), now, 0.3);
     this.info.drone = noteName(root);
+  }
+
+  // 두 벌(on = 지금 울리는 벌) 중 쉬던 벌을 새 음 m(MIDI)으로 맞추고, XFADE초에 걸쳐 새 벌은 피어나고 옛 벌은 사라진다.
+  // 음높이가 미끄러지지 않는다. 같은 음이면 아무것도 안 한다. 처음에는 두 벌 모두 바로 맞춘다
+  crossTo(pair, m) {
+    const now = this.ctx.currentTime, f = mtof(m);
+    if (pair.pitch === null) {
+      for (const L of pair.osc) for (const o of L) o.frequency.setValueAtTime(f, now);
+      pair.pitch = m;
+      return;
+    }
+    if (Math.abs(pair.pitch - m) < 0.01) return;
+    const nx = 1 - pair.on, at = now + 0.05;
+    for (const o of pair.osc[nx]) o.frequency.setTargetAtTime(f, now, 0.01);  // 쉬던 벌 (페이드 중이었어도 아주 짧게)
+    for (const g of pair.fade[nx]) g.gain.setTargetAtTime(1, at, XFADE / 3);
+    for (const g of pair.fade[pair.on]) g.gain.setTargetAtTime(0, at, XFADE / 3);
+    pair.on = nx;
+    pair.pitch = m;
   }
 
   // 살아있는 노드 번호들. 배열은 compact() 전까지 죽은 칸이 쌓여 살아있는 수의 몇 배가 되므로,
@@ -782,9 +844,9 @@ class MyceliumSound {
     this.info.pad = voices;
     if (this.midi) {
       // 드론: 지금 드론 음 하나, 화음: 쌓인 음들 (음량 0이면 끈다). 흐름 → CC74(밝기)
-      const rd = this.rd, degs = this.padDegrees;
-      this.midiHold('drone', nodes && this.vol.drone > 0 ? [this.note(-12, rd)] : []);
-      this.midiHold('pad', this.vol.pad > 0 ? degs.slice(0, voices).map((d) => this.note(-12, rd + d)) : []);
+      const on = (p) => p !== null;
+      this.midiHold('drone', nodes && this.vol.drone > 0 && on(this.drone.pitch) ? [this.drone.pitch] : []);
+      this.midiHold('pad', this.vol.pad > 0 ? this.pad.slice(0, voices).map((v) => v.pitch).filter(on) : []);
       this.midiCC('drone', 74, flowLv);
     }
   }

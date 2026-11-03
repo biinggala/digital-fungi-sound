@@ -16,14 +16,16 @@ defineStyle('moss', {
   },
   // 악기는 (시각, 주파수, 세기, 출력, 옵션)을 받아 소리를 걸고, 가장 늦게 끝나는 소스를 돌려준다. this는 MyceliumSound
   instruments: {
-    // 코토: 뜯는 순간 밝았다가 금방 어두워지는 현. 셋 중 하나는 뜯은 뒤 줄을 눌러 반음 밀어 올린다(오시데)
+    // 코토: 뜯는 순간 밝았다가 금방 어두워지는 현. 셋 중 하나는 뜯은 뒤 줄을 눌러 바로 위 음계 음까지 밀어 올린다(오시데)
     koto(t, f, amp, out) {
       const end = t + 1.9, o = this.osc('sawtooth', f, t, end), lp = this.filter('lowpass', 4200, 2);
       lp.frequency.setValueAtTime(4200, t);
       lp.frequency.exponentialRampToValueAtTime(Math.max(300, f * 1.5), t + 0.4);
-      if (Math.random() < 0.33) {
+      // 오시데: 바로 위 음계 음까지 밀어 올린다 (반음 · 온음 거리일 때만). 예전엔 늘 반음 위로 밀어서 음계 밖 음이 나기도 했다
+      const m = 69 + 12 * Math.log2(f / 440), up = this.above(m);
+      if (Math.random() < 0.33 && up - m <= 2.5) {
         o.frequency.setValueAtTime(f, t + 0.22);
-        o.frequency.linearRampToValueAtTime(f * 1.06, t + 0.4);
+        o.frequency.linearRampToValueAtTime(mtof(up), t + 0.4);
       }
       o.connect(lp).connect(this.env(t, amp * 0.9, 0.002, 1.8)).connect(out);
       this.osc('triangle', f * 2, t, t + 0.3).connect(this.env(t, amp * 0.25, 0.001, 0.2)).connect(out);

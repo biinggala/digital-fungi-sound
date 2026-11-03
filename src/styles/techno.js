@@ -23,7 +23,8 @@ defineStyle('techno', {
   // 악기는 (시각, 주파수, 세기, 출력, 옵션)을 받아 소리를 걸고, 가장 늦게 끝나는 소스를 돌려준다. this는 MyceliumSound
   instruments: {
     // 화음 스탭: 신스의 코드 메모리처럼 같은 마이너 9화음(0 3 7 10 14)을 근음만 바꿔 평행 이동. 톱니파 → 금방 닫히는 저역 필터.
-    // 화음 모드에서는 지금 화음의 구성음을 f 근처 옥타브에 쌓는다 (진행을 따라간다)
+    // 화음 모드에서는 지금 화음의 구성음을 f 근처 옥타브에 쌓는다 (진행을 따라간다). 음계 모드에서는 각 음을 가장 가까운 음계 음으로
+    // 옮겨서 (예: 장조 5음계 위에서 단3도 대신 음계 음) 드론 · 화음과 부딪히지 않게 한다
     stab(t, f, amp, out) {
       const end = t + 0.45, lp = this.filter('lowpass', 3200, 2.5), sum = this.ctx.createGain();
       lp.frequency.setValueAtTime(3200, t);
@@ -34,6 +35,9 @@ defineStyle('techno', {
         const m = 69 + 12 * Math.log2(f / 440);
         root = mtof(this.base + 12 * Math.round((m - this.base) / 12));
         ivs = CHORD[this.current[1]];
+      } else {
+        const m = 69 + 12 * Math.log2(f / 440);
+        ivs = [...new Set(ivs.map((i) => this.snap(m + i) - m))];
       }
       let last;
       for (const st of ivs) {
