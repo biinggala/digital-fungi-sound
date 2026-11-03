@@ -515,21 +515,19 @@ $('copyMail').addEventListener('click', async () => {
 });
 $('helpBtn').addEventListener('click', toggleHelp);
 
-// 소리 켜기 · 음소거
-function toggleMute() {
-  if (!sound.enabled) return;
-  sound.setMuted(!sound.muted);
-  $('mute').textContent = t(sound.muted ? 'unmute' : 'mute');
-  $('mute').classList.toggle('on', sound.muted);
+// 소리: 버튼 하나로 켜고 끈다. 첫 클릭은 오디오를 시작하고 (브라우저는 클릭 안에서만 허락), 그 뒤로는 음소거를 오간다
+function soundLive() { return sound.enabled && !sound.muted; }
+function paintSound() {
+  $('soundOn').textContent = `♪ ${t(soundLive() ? 'soundOnDone' : 'soundOff')}`;
+  $('soundOn').classList.toggle('live', soundLive());
 }
-$('soundOn').addEventListener('click', async () => {
-  await sound.start();
-  $('soundOn').textContent = `♪ ${t('soundOnDone')}`;
-  $('soundOn').disabled = true;
-  $('mute').disabled = false;
+async function toggleSound() {
+  if (!sound.enabled) await sound.start();
+  else sound.setMuted(!sound.muted);
+  paintSound();
   updateSoundStats();
-});
-$('mute').addEventListener('click', toggleMute);
+}
+$('soundOn').addEventListener('click', toggleSound);
 
 // 스타일 프리셋: 모든 채널이 한 스타일에 있으면 그 이름이 켜지고, 섞여 있으면 '섞임'
 for (const k of STYLE_ORDER) {
@@ -771,8 +769,7 @@ function relabel() {
   if (midiAccess) { const v = $('midiOut').value; fillMidi(); $('midiOut').value = v; }
   $('rec').disabled = !recOK;
   if (!recOK) $('rec').title = t('rec.na');
-  $('soundOn').textContent = `♪ ${t(sound.enabled ? 'soundOnDone' : 'soundOn')}`;
-  $('mute').textContent = t(sound.muted ? 'unmute' : 'mute');
+  paintSound();
   for (const o of $('soundScale').options) o.text = t(`scale.${o.value}`);
   if (sim) { updateStats(); updateLegend(); }
   updateSoundStats();
@@ -785,7 +782,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Space') { e.preventDefault(); togglePause(); }
   else if (e.key === 'r') reset();
   else if (e.key === 'v') setView(ui.view === 'colony' ? 'flow' : 'colony');
-  else if (e.key === 'm') toggleMute();
+  else if (e.key === 'm') toggleSound();
   else if (e.key === 'l') toggleLang();
   else if (e.key === 'h') toggleHelp();
   else if (e.key === 'Escape') { if (!$('help').hidden) toggleHelp(); if (!$('contact').hidden) toggleContact(); }

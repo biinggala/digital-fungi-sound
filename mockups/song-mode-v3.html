@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Song Mode v3</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* 8 px 격자. 글자 크기는 10 (라벨) · 12 (값) · 16 (주 표시) 세 단계만 */
+  :root {
+    --bg:#0e0e0e; --panel:#111; --cell:#161616; --fg:#e0e0e0; --strong:#fff; --muted:#7c7c7c; --muted-2:#565656;
+    --rule:#262626; --track:#2a2a2a; --red:#e8553f;
+    --eno:#78b3c0; --moss:#5f8f62; --green:#b3c45a; --aphex:#e8553f; --sunra:#b07ad8; --lab:#c9b48a;
+    color-scheme: dark;
+  }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:var(--bg); color:var(--fg);
+    font:12px/16px 'DM Mono', ui-monospace, Menlo, monospace; letter-spacing:.04em; font-variant-numeric:tabular-nums; }
+  body { display:flex; flex-direction:column; }
+  button { font:inherit; letter-spacing:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer; }
+  .cap { font-size:10px; line-height:16px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+  .dim { color:var(--muted-2); }
+  .val { color:var(--strong); }
+
+  /* ---------- 위 ---------- */
+  header { padding:16px 32px 8px; }
+  .title { color:var(--strong); text-transform:uppercase; letter-spacing:.1em; }
+  .title small { color:var(--muted-2); font-size:inherit; margin:0 8px 0 6px; }
+  .by { color:var(--muted-2); text-transform:uppercase; } .by b { color:var(--muted); font-weight:400; }
+  .bar { display:flex; align-items:center; gap:32px; margin-top:8px; height:24px; }
+  .grp { display:flex; align-items:center; gap:8px; white-space:nowrap; }
+  .btn { height:20px; border:1px solid #9a9a9a; border-radius:2px; padding:0 6px; text-transform:uppercase; display:inline-flex; align-items:center; gap:6px; }
+  .btn:hover { border-color:var(--strong); }
+  .opt { color:var(--muted-2); text-transform:uppercase; } .opt:hover { color:var(--muted); } .opt.on { color:var(--strong); }
+  .push { margin-left:auto; }
+
+  /* ---------- 무대 ---------- */
+  #stage { position:relative; flex:1; min-height:120px; }
+  #stage canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
+
+  /* ---------- 판: 독 바로 위에 붙는다. 무대를 덮지 않고 밀어 올린다 ---------- */
+  #panel { height:288px; border-top:1px solid var(--rule); background:var(--panel); display:none; }
+  #panel.open { display:flex; }
+  .page { display:none; flex:1; min-width:0; }
+  .page.on { display:flex; }
+  /* 모듈: 랙의 한 칸. 위에 이름, 사이에 세로 실선 */
+  .mod { display:flex; flex-direction:column; padding:12px 16px 16px; border-right:1px solid var(--rule); min-width:0; }
+  .mod:last-child { border-right:0; }
+  .mod > .hd { display:flex; justify-content:space-between; align-items:center; height:16px; margin-bottom:12px; gap:16px; }
+  .mod > .hd .cap:first-child { color:var(--fg); }
+  .grow { flex:1; }
+
+  /* 엔코더: 평면 호 하나 + 값 */
+  .encs { display:grid; gap:12px 8px; }
+  .enc { width:64px; display:flex; flex-direction:column; align-items:center; cursor:ns-resize; user-select:none; }
+  .enc svg { display:block; }
+  .enc .v { color:var(--strong); margin-top:2px; }
+  .enc .cap { margin-top:0; white-space:nowrap; }
+  .enc.mod-on .v { color:var(--red); }
+
+  /* 목록 (Elektron 메뉴처럼): 선택한 줄은 반전 */
+  .list { display:flex; flex-direction:column; }
+  .list button { height:24px; display:grid; align-items:center; text-align:left; padding:0 8px; color:var(--muted); border-radius:2px; }
+  .list button:hover { color:var(--fg); }
+  .list button.on { background:var(--fg); color:#0e0e0e; }
+  .list button.on .dim, .list button.on .cap { color:#555; }
+
+  .seg { display:flex; border:1px solid var(--rule); border-radius:2px; height:24px; }
+  .seg button { flex:1; padding:0 8px; white-space:nowrap; color:var(--muted-2); text-transform:uppercase; border-right:1px solid var(--rule); }
+  .seg button:last-child { border-right:0; }
+  .seg button.on { color:#0e0e0e; background:var(--fg); }
+
+  /* ---------- 1 화음 ---------- */
+  .ring text { font:12px 'DM Mono', monospace; letter-spacing:0; }
+  .ring .s { cursor:pointer; }
+  .kb { position:relative; height:56px; }
+  .kb i { position:absolute; top:0; border:1px solid #0e0e0e; }
+  .kb .w { height:56px; background:#2e2e2e; border-radius:0 0 2px 2px; }
+  .kb .b { height:34px; background:#141414; z-index:1; border-color:#2e2e2e; border-radius:0 0 2px 2px; }
+  .kb .on { background:var(--fg); } .kb .b.on { background:#bdbdbd; } .kb .root { background:var(--red) !important; }
+  .notes { display:flex; gap:16px; margin-top:8px; }
+  .xy { position:relative; width:168px; height:168px; border:1px solid var(--rule); cursor:crosshair; touch-action:none;
+    background-image:linear-gradient(var(--rule) 1px, transparent 1px), linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+    background-size:21px 21px; background-position:-1px -1px; }
+  .xy .h, .xy .vl { position:absolute; background:#6a6a6a; }
+  .xy .h { left:0; right:0; height:1px; } .xy .vl { top:0; bottom:0; width:1px; }
+  .xy .pt { position:absolute; width:8px; height:8px; margin:-4px; background:var(--strong); }
+  .xy svg { position:absolute; inset:0; }
+
+  /* ---------- 2 소리 ---------- */
+  .tracks button { grid-template-columns:24px 1fr 104px 40px; gap:8px; }
+  .lvl { height:4px; background:var(--track); position:relative; } .lvl b { position:absolute; left:0; top:0; bottom:0; background:currentColor; }
+  .sw { display:inline-block; width:8px; height:8px; border-radius:1px; margin-right:6px; vertical-align:0; }
+  .big { font-size:16px; line-height:24px; color:var(--strong); text-transform:uppercase; letter-spacing:.08em; }
+  .graph { border:1px solid var(--rule); display:block; }
+  .steps { display:grid; grid-template-columns:repeat(16, 1fr); gap:2px; height:24px; }
+  .steps i { background:var(--cell); border-radius:1px; } .steps i.beat { background:#202020; }
+  .steps i.hit { background:var(--fg); } .steps i.now { outline:1px solid var(--red); outline-offset:-1px; }
+
+  /* ---------- 3 곡 ---------- */
+  .arr { position:relative; flex:1; display:grid; grid-template-columns:72px 1fr; grid-auto-rows:min-content; row-gap:8px; }
+  .ruler { position:relative; height:16px; border-bottom:1px solid var(--rule); }
+  .ruler span { position:absolute; bottom:2px; font-size:10px; color:var(--muted-2); transform:translateX(-1px); }
+  .ruler i { position:absolute; bottom:-1px; width:1px; height:4px; background:#3a3a3a; } .ruler i.m { height:8px; background:#555; }
+  .lane { position:relative; height:32px; }
+  .lane.s { height:24px; }
+  .blk { position:absolute; top:0; bottom:0; background:var(--cell); border-top:2px solid; padding:2px 8px 0; overflow:hidden; white-space:nowrap; }
+  .blk.on { background:#1d1d1d; }
+  .blk .cap { color:var(--fg); } .blk .dim { font-size:10px; }
+  .cc { position:absolute; top:0; bottom:0; border-left:1px solid var(--rule); padding:4px 6px; white-space:nowrap; overflow:hidden; color:var(--fg); }
+  .cond { position:absolute; top:4px; font-size:10px; color:var(--muted); white-space:nowrap; letter-spacing:.08em; text-transform:uppercase; }
+  .cond::before { content:'→ '; color:var(--muted-2); }
+  .ph { position:absolute; top:0; bottom:0; width:1px; background:var(--red); pointer-events:none; }
+  .ph span { position:absolute; bottom:0; left:6px; color:var(--red); font-size:10px; letter-spacing:.08em; white-space:nowrap; }
+  .lname { height:32px; display:flex; align-items:center; } .lname.s { height:24px; }
+
+  /* ---------- 4 연결 (패치 베이) ---------- */
+  .jack { display:flex; flex-direction:column; align-items:center; gap:4px; width:64px; }
+  .jack svg { display:block; }
+  .jrow { display:flex; justify-content:space-between; }
+  .cables { position:absolute; inset:0; pointer-events:none; }
+  .amts { display:grid; grid-template-columns:8px 1fr 48px; gap:0 8px; align-items:center; }
+  .amts > * { height:24px; display:flex; align-items:center; border-bottom:1px solid var(--rule); }
+  .amts .k { width:8px; height:2px; align-self:center; border:0; }
+
+  /* ---------- 독 ---------- */
+  #dock { display:flex; height:48px; border-top:1px solid var(--rule); background:var(--bg); }
+  .tab { position:relative; display:flex; align-items:center; gap:12px; padding:0 20px; border-right:1px solid var(--rule); cursor:pointer; white-space:nowrap; }
+  .tab:first-child { padding-left:32px; }
+  .tab .n { font-size:10px; color:var(--muted-2); }
+  .tab:hover .cap { color:var(--fg); }
+  .tab.on::before { content:''; position:absolute; left:0; right:0; top:-1px; height:2px; background:var(--strong); }
+  .tab.on .cap { color:var(--strong); }
+  .mini { display:flex; gap:2px; width:200px; height:8px; position:relative; }
+  .mini i { height:8px; } .mini b { position:absolute; top:-4px; bottom:-4px; width:1px; background:var(--red); }
+  .stats { margin-left:auto; display:flex; align-items:center; gap:20px; padding-right:32px; color:var(--muted-2); font-size:10px; letter-spacing:.1em; text-transform:uppercase; }
+  .stats b { color:var(--muted); font-weight:400; }
+</style>
+</head>
+<body>
+
+<header>
+  <div><span class="title">Digital Fungi<small>♪ sound</small></span><span class="by">by <b>Heegun Choi</b></span></div>
+  <div class="bar">
+    <span class="grp"><button class="btn">❚❚ Pause</button><button class="btn">↺ Reset</button><button class="btn">● Rec</button></span>
+    <span class="grp"><span class="cap">Tool</span><button class="opt on">◉ Spore</button><button class="opt">▦ Food</button><button class="opt">ϟ Stim</button><button class="opt">⌖ Probe</button></span>
+    <span class="grp"><span class="cap">View</span><button class="opt on">Colony</button><button class="opt">Flow</button></span>
+    <span class="grp push"><button class="btn">♪ Sound on</button><button class="opt">Help</button><button class="btn">한</button></span>
+  </div>
+</header>
+
+<div id="stage"><canvas id="c"></canvas></div>
+
+<div id="panel">
+
+  <!-- 1 화음 -->
+  <div class="page" id="p-chord">
+    <div class="mod" style="width:248px">
+      <div class="hd"><span class="cap">Root</span><span class="cap dim">5도권</span></div>
+      <svg class="ring" id="ring" width="216" height="216" viewBox="-108 -108 216 216" style="margin-top:-12px"></svg>
+    </div>
+    <div class="mod" style="width:168px">
+      <div class="hd"><span class="cap">Quality</span></div>
+      <div class="list" id="qual" style="display:grid;grid-template-columns:1fr 1fr;column-gap:4px"></div>
+    </div>
+    <div class="mod grow">
+      <div class="hd"><span class="cap">Voicing</span><span class="cap" id="cname" style="color:var(--strong)">G min7</span></div>
+      <div class="kb" id="kb"></div>
+      <div class="notes" id="notes"></div>
+      <div class="encs" style="grid-template-columns:repeat(4,64px);margin-top:auto">
+        <div data-enc="Spread|2 oct|.5"></div><div data-enc="Invert|0|0"></div><div data-enc="Octave|3|.45"></div><div data-enc="Voices|4|.5"></div>
+      </div>
+    </div>
+    <div class="mod" style="width:200px">
+      <div class="hd"><span class="cap">Source</span></div>
+      <div class="list" id="src">
+        <button class="on" style="grid-template-columns:1fr auto"><span>Hold</span><span class="cap">직접</span></button>
+        <button style="grid-template-columns:1fr auto"><span>Network</span><span class="cap">고리 수</span></button>
+        <button style="grid-template-columns:1fr auto"><span>Song</span><span class="cap">진행표</span></button>
+      </div>
+      <p class="cap dim" style="margin:auto 0 0;text-transform:none;letter-spacing:.04em;line-height:16px">균사체의 모든 음은<br>이 화음의 구성음에서<br>고른다.</p>
+    </div>
+    <div class="mod" style="width:216px">
+      <div class="hd"><span class="cap">Space</span><span class="cap"><span class="dim">rec</span> ●</span></div>
+      <div class="xy" id="xy"><svg id="trail"></svg><i class="h"></i><i class="vl"></i><i class="pt"></i></div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;width:168px"><span><span class="cap">Dly</span> <span class="val" id="dly">0.62</span></span><span><span class="cap">Rev</span> <span class="val" id="rev">0.70</span></span></div>
+    </div>
+  </div>
+
+  <!-- 2 소리 -->
+  <div class="page" id="p-sound">
+    <div class="mod" style="width:352px">
+      <div class="hd"><span class="cap">Tracks</span><span class="cap">Preset <span class="val">Aphex</span> ▾</span></div>
+      <div class="list tracks" id="tracks"></div>
+    </div>
+    <div class="mod" style="width:296px">
+      <div class="hd"><span class="cap">Source</span><span class="cap dim">02 · Food found</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center"><span class="big"><span class="sw" style="background:var(--aphex);vertical-align:2px"></span>Acid</span><span class="cap">◂ ▸</span></div>
+      <svg class="graph" width="264" height="56" viewBox="0 0 264 56" style="margin:8px 0 12px"><path d="M0 44 L44 12 L44 44 L88 12 L88 44 L132 12 L132 44 L176 12 L176 44 L220 12 L220 44 L264 12" fill="none" stroke="#e0e0e0" stroke-width="1"/><line x1="0" y1="28" x2="264" y2="28" stroke="#262626"/></svg>
+      <div class="encs" style="grid-template-columns:repeat(4,64px);margin-top:auto">
+        <div data-enc="Tune|0|.5"></div><div data-enc="Octave|-1|.35"></div><div data-enc="Cutoff|1.4k|.62|m"></div><div data-enc="Reso|0.8|.8"></div>
+      </div>
+    </div>
+    <div class="mod" style="width:296px">
+      <div class="hd"><span class="cap">Amp env</span></div>
+      <svg class="graph" width="264" height="88" viewBox="0 0 264 88" style="margin-bottom:12px">
+        <g stroke="#1c1c1c"><line x1="66" y1="0" x2="66" y2="88"/><line x1="132" y1="0" x2="132" y2="88"/><line x1="198" y1="0" x2="198" y2="88"/></g>
+        <path d="M0 80 L12 8 L56 44 L196 44 L264 80" fill="none" stroke="#e0e0e0"/>
+        <g fill="#0e0e0e" stroke="#fff"><rect x="9" y="5" width="6" height="6"/><rect x="53" y="41" width="6" height="6"/><rect x="193" y="41" width="6" height="6"/></g>
+      </svg>
+      <div class="encs" style="grid-template-columns:repeat(4,64px);margin-top:auto">
+        <div data-enc="Atk|4 ms|.08"></div><div data-enc="Dec|180|.4"></div><div data-enc="Sus|0.55|.55"></div><div data-enc="Rel|420|.6"></div>
+      </div>
+    </div>
+    <div class="mod grow">
+      <div class="hd"><span class="cap">Trigger</span><span class="cap dim">마지막 1마디</span></div>
+      <div class="steps" id="steps"></div>
+      <div class="encs" style="grid-template-columns:repeat(4,64px);margin-top:auto">
+        <div data-enc="Grid|1/16|.75"></div><div data-enc="Prob|62%|.62"></div><div data-enc="Swing|56|.3"></div><div data-enc="Gap|0.12|.2"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 곡 -->
+  <div class="page" id="p-song">
+    <div class="mod grow" style="padding-right:24px">
+      <div class="hd"><span class="cap">Arrange</span><span class="cap"><span class="dim">bar</span> <span class="val">038.2</span> <span class="dim">/ ~112 · 88 bpm · 4/4</span></span></div>
+      <div class="arr" id="arr">
+        <span></span><div class="ruler" id="ruler"></div>
+        <span class="lname cap">Scene</span><div class="lane" id="L-scene"></div>
+        <span class="lname cap s">Chord</span><div class="lane s" id="L-chord"></div>
+        <span class="lname cap s">Next</span><div class="lane s" id="L-cond"></div>
+        <span class="lname cap s">Energy</span><div class="lane s"><svg width="100%" height="24" viewBox="0 0 1000 24" preserveAspectRatio="none"><path d="M0 22 C120 21 150 18 180 16 S320 10 360 9 S560 2 600 3 S760 12 800 14 S960 22 1000 23" fill="none" stroke="#7c7c7c" vector-effect="non-scaling-stroke"/></svg></div>
+      </div>
+    </div>
+    <div class="mod" style="width:232px">
+      <div class="hd"><span class="cap">Transport</span></div>
+      <div class="seg" style="margin-bottom:8px"><button style="flex:0 0 32px">■</button><button class="on">▶ Song</button><button>Loop scene</button></div>
+      <button class="btn" style="width:100%;justify-content:center;height:24px">+ Capture scene</button>
+      <div style="margin-top:auto">
+        <div class="hd" style="display:flex;justify-content:space-between;margin-bottom:8px"><span class="cap">Export</span><span class="cap dim">seed 4F2A·91</span></div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:4px"><button class="btn" style="justify-content:center">Wav</button><button class="btn" style="justify-content:center">Stems</button><button class="btn" style="justify-content:center">Midi</button><button class="btn" style="justify-content:center">Link</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 연결 -->
+  <div class="page" id="p-mod">
+    <div class="mod grow" style="position:relative">
+      <div class="hd"><span class="cap">Patch</span><span class="cap dim">균사체 상태 → 소리 · 끌어서 잇기</span></div>
+      <div style="position:relative;flex:1;display:flex;flex-direction:column;justify-content:space-between;padding:0 8px" id="bay">
+        <div class="jrow" id="outs"></div>
+        <div class="jrow" id="ins"></div>
+        <svg class="cables" id="cables"></svg>
+      </div>
+    </div>
+    <div class="mod" style="width:304px">
+      <div class="hd"><span class="cap">Amount</span><span class="cap dim">5 cables</span></div>
+      <div class="amts" id="amts"></div>
+    </div>
+  </div>
+
+  <!-- 5 시뮬레이션 -->
+  <div class="page" id="p-sim">
+    <div class="mod"><div class="hd"><span class="cap">Growth</span></div>
+      <div class="encs" style="grid-template-columns:repeat(3,64px)">
+        <div data-enc="Speed|1.0|.3"></div><div data-enc="Branch|0.04|.4"></div><div data-enc="Chemo|1.0|.25"></div>
+        <div data-enc="Avoid|0.3|.15"></div><div data-enc="Adapt|0.02|.2"></div><div data-enc="Compete μ|1.5|.4"></div>
+      </div></div>
+    <div class="mod"><div class="hd"><span class="cap">Electric</span></div>
+      <div class="encs" style="grid-template-columns:repeat(2,64px)">
+        <div data-enc="Spont|0.004|.2"></div><div data-enc="Recov ε|0.003|.1"></div>
+        <div data-enc="Loop|1.0|1"></div><div data-enc="Spike|3|.5"></div>
+      </div></div>
+    <div class="mod"><div class="hd"><span class="cap">Fruit</span></div>
+      <div class="encs" style="grid-template-columns:repeat(2,64px)">
+        <div data-enc="Mat R|0.02|.25"></div><div data-enc="Mat D|0.12|.6"></div>
+        <div data-enc="Satur|0.03|.25"></div><div data-enc="Invest|0.5|.5"></div>
+      </div></div>
+    <div class="mod grow"><div class="hd"><span class="cap">Environment</span></div>
+      <div class="list" style="width:240px">
+        <button class="on" style="grid-template-columns:1fr auto"><span>Transport</span><span>Local</span></button>
+        <button style="grid-template-columns:1fr auto"><span>Soil</span><span>On</span></button>
+        <button style="grid-template-columns:1fr auto"><span>Mat layer</span><span>On</span></button>
+        <button style="grid-template-columns:1fr auto"><span>Zoom</span><span>1.0×</span></button>
+      </div></div>
+  </div>
+</div>
+
+<nav id="dock">
+  <div class="tab" data-p="chord"><span class="n">1</span><span class="cap">Chord</span><span class="val" id="dk-chord">G min7</span></div>
+  <div class="tab" data-p="sound"><span class="n">2</span><span class="cap">Sound</span><span class="val">Aphex</span><span class="lvl" style="width:48px;color:var(--fg)"><b style="width:70%"></b></span></div>
+  <div class="tab" data-p="song"><span class="n">3</span><span class="cap">Song</span><span class="mini" id="mini"></span><span class="val">Network</span><span class="dim">038.2</span></div>
+  <div class="tab" data-p="mod"><span class="n">4</span><span class="cap">Patch</span><span class="dim">5</span></div>
+  <div class="tab" data-p="sim"><span class="n">5</span><span class="cap">Sim</span></div>
+  <div class="stats"><span>Day <b>210</b></span><span>Col <b>8</b></span><span>Tips <b>112</b></span><span>Loops <b>20</b></span><span>Fruit <b>1</b></span></div>
+</nav>
+
+<script>
+const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const NS = 'http://www.w3.org/2000/svg';
+
+// ---------- 판 열고 닫기 (숫자키 1–5, esc) ----------
+function open(p) {
+  $$('.tab').forEach(t => t.classList.toggle('on', t.dataset.p === p));
+  $$('.page').forEach(x => x.classList.toggle('on', x.id === 'p-' + p));
+  $('#panel').classList.toggle('open', !!p);
+  drawStage(); if (p === 'mod') drawCables();
+}
+$$('.tab').forEach(t => t.onclick = () => open(t.classList.contains('on') ? null : t.dataset.p));
+addEventListener('keydown', e => { if (e.key === 'Escape') open(null); const i = '12345'.indexOf(e.key); if (i >= 0) $$('.tab')[i].click(); });
+
+// ---------- 엔코더: 270° 호, 끌면 값이 바뀐다 ----------
+function arc(r, a0, a1) {
+  const p = a => [Math.cos(a) * r, Math.sin(a) * r];
+  const [x0, y0] = p(a0), [x1, y1] = p(a1);
+  return `M${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+}
+const A0 = Math.PI * 0.75, SPAN = Math.PI * 1.5;
+function renderEnc(el) {
+  const [label, v, f, m] = el.dataset.enc.split('|');
+  el.className = 'enc' + (m ? ' mod-on' : '');
+  el.f = +f;
+  el.innerHTML = `<svg width="40" height="36" viewBox="-20 -19 40 36"><path class="tr" stroke="#2a2a2a" stroke-width="2" fill="none" stroke-linecap="butt"/><path class="va" stroke="${m ? '#e8553f' : '#e0e0e0'}" stroke-width="2" fill="none"/><line class="nd" stroke="#fff" stroke-width="1.5"/></svg><span class="v">${v}</span><span class="cap">${label.replace(/([με])/g, '<span style="text-transform:none">$1</span>')}</span>`;
+  paintEnc(el);
+  el.onpointerdown = e => { el.setPointerCapture(e.pointerId); const y0 = e.clientY, f0 = el.f;
+    el.onpointermove = ev => { el.f = Math.min(1, Math.max(0, f0 + (y0 - ev.clientY) / 120)); paintEnc(el); };
+    el.onpointerup = () => el.onpointermove = null; };
+}
+function paintEnc(el) {
+  const a = A0 + SPAN * el.f;
+  $('.tr', el).setAttribute('d', arc(15, A0, A0 + SPAN));
+  $('.va', el).setAttribute('d', el.f > 0.005 ? arc(15, A0, a) : '');
+  const nd = $('.nd', el);
+  nd.setAttribute('x1', Math.cos(a) * 6); nd.setAttribute('y1', Math.sin(a) * 6);
+  nd.setAttribute('x2', Math.cos(a) * 15); nd.setAttribute('y2', Math.sin(a) * 15);
+}
+$$('[data-enc]').forEach(renderEnc);
+
+// ---------- 1 화음 ----------
+const FIFTHS = ['C','G','D','A','E','B','F♯','D♭','A♭','E♭','B♭','F'];
+const PC = { 'C':0,'D♭':1,'D':2,'E♭':3,'E':4,'F':5,'F♯':6,'G':7,'A♭':8,'A':9,'B♭':10,'B':11 };
+const NAMES = ['C','D♭','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
+// 배열로: 객체에 '7' 같은 숫자 키가 있으면 맨 앞으로 정렬돼 버린다
+const QL = [['maj',[0,4,7]],['min',[0,3,7]],['dom7',[0,4,7,10]],['maj7',[0,4,7,11]],['min7',[0,3,7,10]],['min9',[0,3,7,10,14]],
+  ['sus2',[0,2,7]],['sus4',[0,5,7]],['add9',[0,4,7,14]],['6/9',[0,4,7,9,14]],['dim',[0,3,6]],['aug',[0,4,8]],['quartal',[0,5,10,15]],['5th',[0,7]]];
+const QUAL = Object.fromEntries(QL);
+let root = 'G', qual = 'min7';
+function drawRing() {
+  const svg = $('#ring'); svg.innerHTML = '';
+  const ri = 56, ro = 100, k = FIFTHS.indexOf(root);
+  // 지금 근음 기준 장조 · 단조에서 쓰이는 이웃 (5도권에서 −1 ~ +1 칸, 그 나란한조)
+  FIFTHS.forEach((n, i) => {
+    const a0 = (i - 0.5) / 12 * Math.PI * 2 - Math.PI / 2 + 0.012, a1 = (i + 0.5) / 12 * Math.PI * 2 - Math.PI / 2 - 0.012;
+    const d = ((i - k + 12) % 12), near = d === 1 || d === 11 || d === 2 || d === 10;
+    const pt = (r, a) => `${(Math.cos(a) * r).toFixed(2)} ${(Math.sin(a) * r).toFixed(2)}`;
+    const g = document.createElementNS(NS, 'g'); g.setAttribute('class', 's');
+    g.innerHTML = `<path d="M${pt(ro, a0)} A${ro} ${ro} 0 0 1 ${pt(ro, a1)} L${pt(ri, a1)} A${ri} ${ri} 0 0 0 ${pt(ri, a0)}Z"
+      fill="${n === root ? '#e0e0e0' : '#161616'}" stroke="${near && n !== root ? '#555' : 'none'}"/>
+      <text x="${Math.cos((a0 + a1) / 2) * 78}" y="${Math.sin((a0 + a1) / 2) * 78 + 4}" text-anchor="middle" fill="${n === root ? '#0e0e0e' : near ? '#e0e0e0' : '#565656'}">${n}</text>`;
+    g.onclick = () => { root = n; update(); };
+    svg.appendChild(g);
+  });
+  svg.insertAdjacentHTML('beforeend', `<text x="0" y="2" text-anchor="middle" fill="#fff" style="font-size:16px">${root}</text>
+    <text x="0" y="20" text-anchor="middle" fill="#7c7c7c" style="font-size:10px;letter-spacing:1.2px">${qual.toUpperCase()}</text>`);
+}
+function drawQual() {
+  $('#qual').innerHTML = QL.map(([q]) => `<button class="${q === qual ? 'on' : ''}" data-q="${q}">${q}</button>`).join('');
+  $$('#qual button').forEach(b => b.onclick = () => { qual = b.dataset.q; update(); });
+}
+function drawKb() {
+  const kb = $('#kb'), W = 20, tones = QUAL[qual].map(s => PC[root] + s + 48);  // C3 = 48
+  let html = '', x = 0; const whites = [0,2,4,5,7,9,11], blackOff = { 1:.62, 3:.62, 6:.62, 8:.62, 10:.62 };
+  const lit = new Set(tones); const r0 = tones[0];
+  for (let oct = 0; oct < 3; oct++) for (const s of whites) { const m = 48 + oct * 12 + s;
+    html += `<i class="w${lit.has(m) ? ' on' : ''}${m === r0 ? ' root' : ''}" style="left:${x}px;width:${W}px"></i>`; x += W; }
+  x = 0;
+  for (let oct = 0; oct < 3; oct++) for (const s of whites) { const b = s + 1;
+    if (blackOff[b]) { const m = 48 + oct * 12 + b; html += `<i class="b${lit.has(m) ? ' on' : ''}${m === r0 ? ' root' : ''}" style="left:${x + W * blackOff[b]}px;width:${W * .76}px"></i>`; }
+    x += W; }
+  kb.innerHTML = html; kb.style.width = x + 'px';
+  $('#notes').innerHTML = tones.map((m, i) => `<span><span class="cap">${['R','3','5','7','9'][i] || '+'}</span> <span class="${i ? 'val' : ''}" style="${i ? '' : 'color:var(--red)'}">${NAMES[m % 12]}${Math.floor(m / 12) - 1}</span></span>`).join('');
+}
+function update() {
+  drawRing(); drawQual(); drawKb();
+  $('#cname').textContent = $('#dk-chord').textContent = `${root} ${qual}`;
+}
+update();
+$$('#src button').forEach(b => b.onclick = () => { $$('#src button').forEach(x => x.classList.remove('on')); b.classList.add('on'); });
+
+// 공간 XY: 십자선 + 녹화된 궤적
+const xy = $('#xy'); let pts = [[.62, .30]];
+function paintXY() {
+  const [x, y] = pts[pts.length - 1];
+  $('.h', xy).style.top = y * 100 + '%'; $('.vl', xy).style.left = x * 100 + '%';
+  $('.pt', xy).style.left = x * 100 + '%'; $('.pt', xy).style.top = y * 100 + '%';
+  $('#dly').textContent = x.toFixed(2); $('#rev').textContent = (1 - y).toFixed(2);
+  $('#trail').setAttribute('viewBox', '0 0 1 1'); $('#trail').setAttribute('preserveAspectRatio', 'none');
+  $('#trail').innerHTML = `<polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#e8553f" stroke-width="1" vector-effect="non-scaling-stroke" opacity=".7"/>`;
+}
+// 처음 모습: 미리 녹화된 느린 원
+pts = Array.from({ length: 40 }, (_, i) => [.5 + .18 * Math.cos(i / 6) + i * .003, .45 + .15 * Math.sin(i / 6)]);
+paintXY();
+xy.onpointerdown = e => { xy.setPointerCapture(e.pointerId); pts = []; const mv = ev => { const r = xy.getBoundingClientRect();
+  pts.push([Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height))]); paintXY(); };
+  mv(e); xy.onpointermove = mv; xy.onpointerup = () => xy.onpointermove = null; };
+
+// ---------- 2 소리 ----------
+const TR = [['Growth','Hat','aphex',.45],['Food found','Acid','aphex',.8],['Wave start','909 kick','aphex',.3],['Spike','Snare','aphex',.55],
+  ['Reentry','Kick','lab',.7],['Probe','Blip','aphex',.1],['Drone','Tape pad','moss',.6],['Pad · front','Hammond','sunra',.4],['Mushroom','E-piano','eno',.2]];
+$('#tracks').innerHTML = TR.map(([n, ins, st, l], i) => `<button class="${i === 1 ? 'on' : ''}"><span class="cap">0${i + 1}</span><span>${n}</span><span class="dim" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span class="sw" style="background:var(--${st})"></span>${ins}</span><span class="lvl"><b style="width:${l * 100}%"></b></span></button>`).join('');
+$$('#tracks button').forEach(b => b.onclick = () => { $$('#tracks button').forEach(x => x.classList.remove('on')); b.classList.add('on'); });
+$('#steps').innerHTML = Array.from({ length: 16 }, (_, i) => `<i class="${i % 4 === 0 ? 'beat ' : ''}${[0,3,6,7,10,14].includes(i) ? 'hit ' : ''}${i === 9 ? 'now' : ''}"></i>`).join('');
+
+// ---------- 3 곡 ----------
+const BARS = 112;
+const SC = [['Spore','eno',0,16,'Eno · drone'],['Explore','green',16,36,'Green · kalimba'],['Network','aphex',36,64,'Aphex · 16ths'],['Fruit','sunra',64,88,'Ra · hammond'],['Decay','moss',88,112,'Moss · koto']];
+const pc = b => b / BARS * 100 + '%';
+let rh = ''; for (let b = 0; b <= BARS; b += 4) rh += `<i class="${b % 16 === 0 ? 'm' : ''}" style="left:${pc(b)}"></i>` + (b % 16 === 0 && b < BARS ? `<span style="left:${pc(b)}">${b + 1}</span>` : '');
+$('#ruler').innerHTML = rh;
+$('#L-scene').innerHTML = SC.map(([n, c, a, z, d], i) => `<div class="blk${i === 2 ? ' on' : ''}" style="left:calc(${pc(a)} + 1px);width:calc(${pc(z - a)} - 2px);border-top-color:var(--${c})"><span class="cap">${String.fromCharCode(65 + i)} ${n}</span> <span class="dim">${d}</span></div>`).join('');
+const CH = [[0,8,'Gm'],[8,16,'E♭maj7'],[16,24,'Gm'],[24,28,'Cm'],[28,32,'E♭'],[32,36,'D7'],[36,43,'Gm9'],[43,50,'B♭'],[50,57,'F'],[57,64,'E♭'],[64,88,'버섯마다 → 다음 화음'],[88,112,'Gsus4  hold']];
+$('#L-chord').innerHTML = CH.map(([a, z, n]) => `<div class="cc" style="left:${pc(a)};width:${pc(z - a)}">${n}</div>`).join('');
+const CO = [[16,'16 bars'],[36,'tips ≥ 60'],[64,'loops ≥ 12'],[88,'fruit +24'],[112,'']];
+$('#L-cond').innerHTML = SC.map(([, , a], i) => CO[i][1] ? `<span class="cond" style="left:calc(${pc(a)} + 8px)">${CO[i][1]}</span>` : '').join('');
+$('#arr').insertAdjacentHTML('beforeend', `<div class="ph" style="left:calc(72px + (100% - 72px) * ${37.2 / BARS})"><span>038.2</span></div>`);
+$('#mini').innerHTML = SC.map(([, c, a, z]) => `<i style="flex:${z - a};background:var(--${c})"></i>`).join('') + `<b style="left:${37.2 / BARS * 100}%"></b>`;
+
+// ---------- 4 연결 ----------
+const OUTS = ['Tips','Flow','Loops','Spikes/s','Mat %','Fruit','Clash'];
+const INS = ['Cutoff','Tempo','Density','Reverb','Pitch','Swing','Chord →'];
+const CAB = [[1,0,'#78b3c0','+0.42'],[1,1,'#b3c45a','+0.20'],[0,2,'#e0e0e0','+0.65'],[2,3,'#b07ad8','−0.30'],[3,4,'#e8553f','+0.15'],[5,6,'#c9b48a','step']];
+const jack = (n, kind) => `<div class="jack" data-j="${kind}${n}">${kind === 'o' ? `<span class="cap">${n}</span>` : ''}<svg width="20" height="20" viewBox="-10 -10 20 20"><circle r="9" fill="none" stroke="#7c7c7c"/><circle r="4" fill="#0e0e0e" stroke="#3a3a3a"/></svg>${kind === 'i' ? `<span class="cap">${n}</span>` : ''}</div>`;
+$('#outs').innerHTML = OUTS.map(n => jack(n, 'o')).join('');
+$('#ins').innerHTML = INS.map(n => jack(n, 'i')).join('');
+$('#amts').innerHTML = CAB.map(([o, i, c, v]) => `<i class="k" style="background:${c}"></i><span><span class="dim">${OUTS[o]}</span>&nbsp;→&nbsp;${INS[i]}</span><span class="val" style="justify-content:flex-end">${v}</span>`).join('');
+function drawCables() {
+  const bay = $('#bay'), r = bay.getBoundingClientRect(), svg = $('#cables');
+  svg.setAttribute('width', r.width); svg.setAttribute('height', r.height);
+  const c = el => { const q = $('svg', el).getBoundingClientRect(); return [q.left + 10 - r.left, q.top + 10 - r.top]; };
+  const o = $$('#outs .jack'), i = $$('#ins .jack');
+  svg.innerHTML = CAB.map(([a, b, col]) => { const [x0, y0] = c(o[a]), [x1, y1] = c(i[b]);
+    const sag = 28 + Math.abs(x1 - x0) * 0.08;
+    return `<path d="M${x0} ${y0} C${x0} ${y0 + sag + 40}, ${x1} ${y1 - 40 + sag}, ${x1} ${y1}" fill="none" stroke="${col}" stroke-width="2"/>
+      <circle cx="${x0}" cy="${y0}" r="4" fill="${col}"/><circle cx="${x1}" cy="${y1}" r="4" fill="${col}"/>`; }).join('');
+}
+
+// ---------- 무대 자리 표시 ----------
+function drawStage() {
+  const cv = $('#c'), r = cv.getBoundingClientRect(), g = cv.getContext('2d'), dpr = 2;
+  cv.width = r.width * dpr; cv.height = r.height * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.fillStyle = '#0b0b0b'; g.fillRect(0, 0, r.width, r.height);
+  let seed = 29; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const grow = (x, y, a, w, d) => { if (d > 10 || w < .3) return; const L = 18 + rnd() * 26;
+    const nx = x + Math.cos(a) * L, ny = y + Math.sin(a) * L;
+    g.strokeStyle = `rgba(226,220,204,${Math.min(.9, .18 + w * .28)})`; g.lineWidth = w; g.beginPath(); g.moveTo(x, y); g.lineTo(nx, ny); g.stroke();
+    grow(nx, ny, a + (rnd() - .5) * .5, w * .84, d + 1);
+    if (rnd() < .5) grow(nx, ny, a + (rnd() < .5 ? -1 : 1) * (.45 + rnd() * .6), w * .58, d + 1); };
+  for (let k = 0; k < 5; k++) { const cx = r.width * (.1 + .2 * k + .06 * rnd()), cy = r.height * (.3 + .4 * rnd());
+    for (let j = 0; j < 7; j++) grow(cx, cy, rnd() * 6.28, 2.4, 0); }
+}
+addEventListener('resize', () => { drawStage(); if ($('#p-mod').classList.contains('on')) drawCables(); });
+const q = new URLSearchParams(location.search).get('p'); open(q || null);
+</script>
+</body>
+</html>
