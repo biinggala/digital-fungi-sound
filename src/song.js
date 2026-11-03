@@ -81,8 +81,9 @@ class Song {
     let p;
     if (type === 'bars') p = bars / n;
     else {
-      const v = type === 'fruit' ? stats.fruitsTotal - this.enterFruit : stats[type];
-      p = Math.max(v / n, bars / max);
+      // 통계 이름: 고리 수 = fusions (독의 LOOPS 앞자리와 같다)
+      const v = type === 'fruit' ? stats.fruitsTotal - this.enterFruit : type === 'loops' ? stats.fusions : stats[type];
+      p = Math.max(Number.isFinite(v) ? v / n : 0, bars / max);
     }
     this.progress = Math.min(1, p);
     if (this.mode === 'scene') {

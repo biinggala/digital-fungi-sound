@@ -307,6 +307,7 @@ function updateStats() {
   }
   const st = sim.stats();
   simSt = st;
+  patchTick(st);
   const day = simDays(sim.t);
   // 독: 늘 보이는 다섯 개
   $('dkStats').innerHTML = ro(day.toFixed(1), 'st.day') + ro(st.colonies, 'st.colonies') + ro(st.tips, 'st.tips') +
@@ -551,7 +552,7 @@ $('fit').addEventListener('click', toggleFit);
 $('reset').addEventListener('click', reset);
 
 // 판: 독 탭으로 하나씩 연다. C는 소리 → 믹서 → 시뮬레이션 → 닫기. 연 판은 브라우저에 기억. 무대 크기는 ResizeObserver가 따라간다
-const PAGES = ['chord', 'sound', 'mixer', 'song', 'sim'];
+const PAGES = ['chord', 'sound', 'mixer', 'song', 'patch', 'sim'];
 let panelPage = null;
 function openPanel(p) {
   panelPage = p;
@@ -561,6 +562,7 @@ function openPanel(p) {
   if (p === 'sound') updateSoundStats();
   if (p === 'sim' && sim) updateStats();
   if (p === 'song' && songReady) renderSong();
+  if (p === 'patch' && songReady) renderPatch();
   try { localStorage.setItem('fungi.panel', p || ''); } catch (e) { /* 이번 방문 동안만 */ }
 }
 document.querySelectorAll('.dock .tab').forEach((x) => x.addEventListener('click', () => openPanel(panelPage === x.dataset.p ? null : x.dataset.p)));
@@ -776,6 +778,116 @@ function renderXY() {
   $('reverb').addEventListener('input', renderXY);
 }
 
+// ---------- 패치 ----------
+// 위 줄 = 균사체 상태(소스), 아래 줄 = 소리 파라미터(목적지). 위 잭에서 아래 잭으로 끌거나, 위 잭을 누른 뒤 아래 잭을 누르면 케이블.
+// 케이블은 브라우저에 기억되고, 곡의 장면에도 함께 담긴다
+const patch = new Patch();
+try { patch.load(JSON.parse(localStorage.getItem('fungi.patch') || 'null')); } catch (e) { /* 빈 패치 */ }
+let cableSel = patch.cables.length ? 0 : -1, pendingOut = null, dragLine = null;
+const savePatch = () => { try { localStorage.setItem('fungi.patch', JSON.stringify(patch)); } catch (e) { /* 이번만 */ } };
+const jackHTML = (k, kind) => `<div class="jack" data-${kind}="${k}">` +
+  (kind === 'src' ? `<span class="lbl" data-i18n="ps.${k}"></span>` : '') +
+  '<svg width="20" height="20" viewBox="-10 -10 20 20"><circle class="o" r="9"/><circle class="i" r="4"/></svg>' +
+  `<span class="meter"><b></b></span>` + (kind === 'dst' ? `<span class="lbl" data-i18n="pd.${k}"></span>` : '') + '</div>';
+$('outs').innerHTML = PATCH_SRC.map((k) => jackHTML(k, 'src')).join('');
+$('ins').innerHTML = PATCH_DST.map((k) => jackHTML(k, 'dst')).join('');
+const jackXY = (el) => {
+  const r = $('bay').getBoundingClientRect(), q = el.querySelector('svg').getBoundingClientRect();
+  return [q.left + q.width / 2 - r.left, q.top + q.height / 2 - r.top];
+};
+const curve = ([x0, y0], [x1, y1]) => `M${x0} ${y0} C${x0} ${y0 + (y1 - y0) * 0.6}, ${x1} ${y1 - (y1 - y0) * 0.4}, ${x1} ${y1}`;
+function drawCables() {
+  if (panelPage !== 'patch') return;
+  const out = (k) => $('outs').querySelector(`[data-src="${k}"]`), inn = (k) => $('ins').querySelector(`[data-dst="${k}"]`);
+  let h = patch.cables.map((c, i) => {
+    const a = jackXY(out(c.src)), b = jackXY(inn(c.dst));
+    return `<g class="${i === cableSel ? 'is-sel' : ''}" style="opacity:${(0.45 + 0.55 * patch.src[c.src]).toFixed(2)}"><path d="${curve(a, b)}"/>` +
+      `<circle cx="${a[0]}" cy="${a[1]}" r="4"/><circle cx="${b[0]}" cy="${b[1]}" r="4"/></g>`;
+  }).join('');
+  if (dragLine) h += `<g class="drag"><path d="${curve(dragLine.a, dragLine.b)}"/></g>`;
+  $('cables').innerHTML = h;
+  const used = new Set(patch.cables.flatMap((c) => [`s${c.src}`, `d${c.dst}`]));
+  document.querySelectorAll('#outs .jack').forEach((j) => { j.classList.toggle('used', used.has(`s${j.dataset.src}`)); j.classList.toggle('is-sel', pendingOut === j.dataset.src); });
+  document.querySelectorAll('#ins .jack').forEach((j) => j.classList.toggle('used', used.has(`d${j.dataset.dst}`)));
+}
+const fmtAmt = (a) => `${a > 0 ? '+' : a < 0 ? '−' : ''}${Math.abs(a).toFixed(2)}`;
+function renderPatch() {
+  $('cableList').innerHTML = patch.cables.map((c, i) => `<button class="${i === cableSel ? 'is-sel' : ''}" data-i="${i}"><span class="name">${t(`ps.${c.src}`)} → ${t(`pd.${c.dst}`)}</span><span>${c.dst === 'chord' ? 'step' : fmtAmt(c.amt)}</span></button>`).join('');
+  $('cableEmpty').hidden = patch.cables.length > 0;
+  $('cableCount').textContent = patch.cables.length || '';
+  $('dkPatch').textContent = patch.cables.length || '';
+  const c = patch.cables[cableSel];
+  $('cableDel').disabled = !c;
+  const amt = $('cableAmt');
+  amt.closest('.enc').style.visibility = c && c.dst !== 'chord' ? '' : 'hidden';
+  if (c) { amt.value = c.amt; amt.closest('.enc').querySelector('output').textContent = fmtAmt(c.amt); }
+  meters.forEach((r) => r());
+  // 패치로 움직이는 손잡이는 신호색 (값은 손잡이 그대로, 그 위에 얹힌다)
+  for (const id of ['reverb', 'echo']) $(id).closest('.enc').classList.toggle('is-live', patch.uses(id));
+  drawCables();
+}
+function connect(src, dst) {
+  const i = patch.connect(src, dst, dst === 'chord' ? 1 : 0.5);
+  if (i >= 0) cableSel = i;
+  pendingOut = null;
+  savePatch();
+  renderPatch();
+}
+// 끌기: 소스 잭에서 시작해 놓은 자리가 목적지 잭이면 연결. 거의 안 움직였으면 '눌러서 고르기'
+$('bay').addEventListener('pointerdown', (e) => {
+  const j = e.target.closest('#outs .jack');
+  if (!j) return;
+  capture($('bay'), e);
+  const r = $('bay').getBoundingClientRect(), a = jackXY(j), x0 = e.clientX, y0 = e.clientY;
+  dragLine = { a, b: a, src: j.dataset.src, moved: false };
+  $('bay').onpointermove = (ev) => {
+    dragLine.b = [ev.clientX - r.left, ev.clientY - r.top];
+    if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 8) dragLine.moved = true;
+    drawCables();
+  };
+});
+$('bay').addEventListener('pointerup', (e) => {
+  $('bay').onpointermove = null;
+  const d = dragLine;
+  dragLine = null;
+  const hit = document.elementFromPoint(e.clientX, e.clientY);
+  const dst = hit && hit.closest('#ins .jack');
+  if (d && d.moved && dst) connect(d.src, dst.dataset.dst);
+  else if (d && !d.moved) { pendingOut = pendingOut === d.src ? null : d.src; drawCables(); }
+  else if (!d && dst && pendingOut) connect(pendingOut, dst.dataset.dst);
+  else drawCables();
+});
+$('cableList').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) { cableSel = +b.dataset.i; renderPatch(); } });
+$('cableDel').addEventListener('click', () => { patch.remove(cableSel); cableSel = Math.min(cableSel, patch.cables.length - 1); savePatch(); renderPatch(); });
+{
+  const amt = $('cableAmt');
+  amt.addEventListener('input', () => {
+    const c = patch.cables[cableSel];
+    if (!c) return;
+    c.amt = +amt.value;
+    amt.closest('.enc').querySelector('output').textContent = fmtAmt(c.amt);
+    const row = $('cableList').children[cableSel];
+    if (row) row.lastElementChild.textContent = fmtAmt(c.amt);
+    savePatch();
+  });
+  makeEnc(amt);
+}
+// 통계가 갱신될 때마다: 소스를 읽고, 결과를 소리 엔진에 넘기고, 잭 막대 · 케이블 밝기를 다시 그린다
+let patchT = performance.now();
+function patchTick(st) {
+  const now = performance.now(), dt = Math.min(1, (now - patchT) / 1000);
+  patchT = now;
+  patch.sense(st, sound.flowLv, dt);
+  const o = patch.out();
+  sound.setMod(o);
+  for (let k = 0; k < o.chord; k++) sound.advance();
+  if (panelPage !== 'patch') return;
+  document.querySelectorAll('#outs .jack').forEach((j) => { j.querySelector('.meter b').style.width = `${patch.src[j.dataset.src] * 100}%`; });
+  const dv = { cutoff: 1 - o.cutoffOpen, tempo: Math.abs(o.tempo), density: Math.abs(o.density), reverb: sound.reverbNow, echo: sound.echoNow, pitch: Math.abs(o.pitch), chord: 0 };
+  document.querySelectorAll('#ins .jack').forEach((j) => { j.querySelector('.meter b').style.width = `${clamp(dv[j.dataset.dst], 0, 1) * 100}%`; });
+  drawCables();
+}
+
 // ---------- 곡 ----------
 // 장면 = 지금 설정의 스냅샷 (채널 스타일 · 음량, 잔향 · 에코, 키 · 음계, 화음, 시뮬레이션 파라미터). 곡은 브라우저에 기억
 const song = new Song();
@@ -787,6 +899,7 @@ function snapshot() {
     pos: { ...sound.pos }, vol: { ...sound.vol }, reverb: sound.reverbAmt, echo: sound.echoAmt,
     tonic: sound.tonic, scale: sound.scaleKey, chord: { ...sound.chord },
     params: Object.fromEntries(TUNABLE.map((k) => [k, +$(k).value])),
+    patch: JSON.parse(JSON.stringify(patch)),
   };
 }
 function applySnap(sn) {
@@ -805,6 +918,7 @@ function applySnap(sn) {
     $(k).value = v;
     $(k).dispatchEvent(new Event('input'));
   }
+  if (sn.patch) { patch.load(sn.patch); savePatch(); cableSel = patch.cables.length ? 0 : -1; renderPatch(); }
   showSoundControls();
 }
 // 장면 요약: 스타일 (모든 채널이 한 스타일이면 그 이름, 아니면 성장 채널 기준) · 화음 또는 키 · 음계
@@ -898,6 +1012,7 @@ document.querySelectorAll('[data-smode]').forEach((b) => b.addEventListener('cli
   if (m === 'scene' && sceneSel >= 0 && song.cur !== sceneSel) enterScene(sceneSel);
   renderSong();
 }));
+renderPatch();
 songReady = true;
 let songT = performance.now();
 function songTick() {
@@ -1052,7 +1167,7 @@ function relabel() {
   paintToggle('matToggle', 'mat', ui.showMat);
   renderPresets();
   if ($('ring').childElementCount) renderChord();
-  if (songReady) renderSong();
+  if (songReady) { renderSong(); renderPatch(); }
   $('midiBtn').disabled = !midiOK;
   if (!midiOK) $('midiBtn').title = t('midi.na');
   if (midiAccess) { const v = $('midiOut').value; fillMidi(); $('midiOut').value = v; }

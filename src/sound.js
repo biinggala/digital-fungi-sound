@@ -193,6 +193,10 @@ class MyceliumSound {
     // 화음: mode 'scale' = 화음 없이 음계 그대로 (예전 소리) · 'hold' = 고른 화음에 고정 · 'network' = 균사체가 자라며 진행
     this.chord = { mode: 'scale', root: 7, qual: 'min7' };
     this.prog = 0;         // network 모드에서 진행표의 몇 번째 화음인지
+    // 패치(src/patch.js)가 넣는 모듈레이션: 손잡이 값은 그대로 두고 그 위에 얹는다
+    this.mod = { cutoffOpen: 1, tempo: 0, density: 0, reverb: 0, echo: 0, pitch: 0 };
+    this.modDeg = 0;       // pitch → 음계 칸 (정수)
+    this.flowLv = 0;
     this.preset('lab');
   }
 
@@ -275,9 +279,10 @@ class MyceliumSound {
   // 드론 칸: 음계 모드에서는 군체가 클수록 아래로 걷고, 화음 모드에서는 늘 근음 (화음이 바뀌는 것은 진행이 맡는다)
   get rd() { return this.chordOn ? 0 : -Math.max(0, this.droneStep); }
 
-  // 기준음(으뜸음 또는 화음 근음) + reg 반음에서 시작해 음계 k번째 칸 (음수면 아래로)
+  // 기준음(으뜸음 또는 화음 근음) + reg 반음에서 시작해 음계 k번째 칸 (음수면 아래로). 패치의 pitch가 칸을 옮긴다
   note(reg, k) {
     const s = this.scale, n = s.length;
+    k += this.modDeg;
     return this.base + reg + 12 * Math.floor(k / n) + s[((k % n) + n) % n];
   }
   // 음계에서 완전5도(7반음)에 가장 가까운 칸
@@ -340,12 +345,25 @@ class MyceliumSound {
     this.master.gain.setTargetAtTime(g, this.ctx.currentTime, 0.05);
   }
 
+  // 잔향 · 에코: 손잡이 값 + 패치
+  get reverbNow() { return clamp(this.reverbAmt + this.mod.reverb, 0, 1); }
+  get echoNow() { return clamp(this.echoAmt + this.mod.echo, 0, 1); }
   applyMix() {
     if (!this.ctx) return;
-    const now = this.ctx.currentTime;
-    this.wet.gain.setTargetAtTime(this.reverbAmt, now, 0.3);
-    this.echoIn.gain.setTargetAtTime(this.echoAmt * 0.9, now, 0.3);
-    for (const fb of this.echoFb) fb.gain.setTargetAtTime(0.2 + 0.5 * this.echoAmt, now, 0.3);
+    const now = this.ctx.currentTime, e = this.echoNow;
+    this.wet.gain.setTargetAtTime(this.reverbNow, now, 0.3);
+    this.echoIn.gain.setTargetAtTime(e * 0.9, now, 0.3);
+    for (const fb of this.echoFb) fb.gain.setTargetAtTime(0.2 + 0.5 * e, now, 0.3);
+  }
+  // 패치 결과를 받는다 (main.js가 통계를 갱신할 때마다)
+  setMod(o) {
+    Object.assign(this.mod, o);
+    const deg = Math.round(clamp(this.mod.pitch, -1, 1) * this.scale.length);
+    if (deg !== this.modDeg) { this.modDeg = deg; if (this.ctx && this.droneStep >= 0) this.retune(); }
+    if (!this.ctx) return;
+    // 마스터 저역 필터: 다 열림 20 kHz, 다 닫힘 약 160 Hz (일곱 옥타브)
+    this.lp.frequency.setTargetAtTime(20000 * Math.pow(2, -7 * (1 - clamp(this.mod.cutoffOpen, 0, 1))), this.ctx.currentTime, 0.25);
+    this.applyMix();
   }
 
   // 지속음(드론 · 화음 · 파면)과 공간을 지금 채널 위치로 맞춘다
@@ -394,7 +412,9 @@ class MyceliumSound {
     comp.attack.value = 0.004; comp.release.value = 0.25;
     this.master = ctx.createGain();
     this.master.gain.value = 0;
-    this.master.connect(comp).connect(ctx.destination);
+    this.lp = ctx.createBiquadFilter();   // 패치의 cutoff 목적지
+    this.lp.type = 'lowpass'; this.lp.frequency.value = 20000; this.lp.Q.value = 0.7;
+    this.master.connect(this.lp).connect(comp).connect(ctx.destination);
     this.comp = comp;
     this.dry = ctx.createGain();
     this.dry.connect(this.master);
@@ -638,7 +658,7 @@ class MyceliumSound {
 
   stepLen(st) {
     const g = st.grid;
-    return 60 / (g.bpm === 'flow' ? this.bpm : g.bpm) / g.div;
+    return 60 / (g.bpm === 'flow' ? this.bpm : g.bpm) / g.div / Math.pow(2, clamp(this.mod.tempo, -1, 1));   // 패치 tempo: 반 ~ 두 배
   }
   // 스타일 st로 내는 사건음의 시각: 그 스타일 시계의 다음 칸에 맞추거나, humanize만큼 흐트린다
   when(st, delay = 0.005) {
@@ -687,7 +707,7 @@ class MyceliumSound {
     for (const k of STYLE_ORDER) {
       const st = STYLES[k];
       const w = this.weightOf('grow', st);
-      const density = st.grain.max * (1 - Math.exp(-tips / st.grain.tips)) * w;
+      const density = st.grain.max * (1 - Math.exp(-tips / st.grain.tips)) * w * Math.pow(2, 2 * clamp(this.mod.density, -1, 1));   // 패치 density: ¼ ~ 4배
       const c = this.clocks[k];
       if (c) {
         const s = this.stepLen(st);
@@ -797,6 +817,7 @@ class MyceliumSound {
       }
     }
     const flowLv = clamp(Math.log10(1 + flow) / 2.7, 0, 1);   // Σ|Q|: 1 → 0.11, 30 → 0.55, 500 → 1
+    this.flowLv = flowLv;
     const thickLv = clamp(s.thick / 0.2, 0, 1);               // 굵은 균사삭 비율 0 ~ 20%
     this.bpm = Math.round(100 + 60 * flowLv);                  // Aphex 격자: 많이 흐를수록 빠르게
     const root = mtof(this.note(-12, this.rd));

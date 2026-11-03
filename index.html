@@ -88,6 +88,25 @@
   .scene .run { position: absolute; left: 0; bottom: 0; height: var(--stroke-2); background: var(--live); }
   .row-btns { display: flex; flex-wrap: wrap; gap: var(--s1); }
 
+  /* 패치 베이: 위 줄 = 소스(균사체), 아래 줄 = 목적지(소리). 잭 아래 막대 = 지금 값 */
+  .bay { position: relative; flex: 1; min-height: calc(var(--u) * 6); display: flex; flex-direction: column; justify-content: space-between; touch-action: none; }
+  .jrow { position: relative; z-index: 1; display: flex; justify-content: space-between; }
+  .jack { display: flex; flex-direction: column; align-items: center; gap: var(--s1); width: var(--col); cursor: crosshair; }
+  .jack svg { display: block; }
+  .jack .o { fill: var(--bg-panel); stroke: var(--text-3); }
+  .jack .i { fill: var(--bg-stage); stroke: var(--line-ctl); }
+  .jack.used .o { stroke: var(--text-1); }
+  .jack:hover .o, .jack.is-sel .o { stroke: var(--text-em); }
+  .jack.is-sel .i { fill: var(--sel-bg); }
+  .jack .meter { width: calc(var(--col) - var(--s4)); }
+  .cables { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+  .cables path { fill: none; stroke: var(--text-2); stroke-width: var(--stroke-2); }
+  .cables circle { fill: var(--text-2); }
+  .cables .is-sel path { stroke: var(--text-em); } .cables .is-sel circle { fill: var(--text-em); }
+  .cables .drag path { stroke: var(--text-1); stroke-dasharray: 4 4; }
+  .cablelist > button { grid-template-columns: 1fr calc(var(--col) - var(--s2)); }
+  .cablelist > button > :last-child { text-align: right; }
+
   /* 화음: 근음 링 (5도권) */
   .ring { display: block; margin: 0 auto; }
   .ring .s { cursor: pointer; }
@@ -125,6 +144,9 @@
     .chan { grid-template-columns: calc(var(--col) + var(--s4)) minmax(0, 1fr) calc(var(--col) - var(--s4)); gap: var(--s2); }
     .xy { width: 100%; height: auto; aspect-ratio: 1; }
     .arr { overflow-x: auto; }
+    .jack { width: auto; flex: 1; }
+    .jack .lbl { letter-spacing: .02em; }
+    .jack .meter { width: 70%; }
   }
 </style>
 </head>
@@ -288,6 +310,22 @@
     </section>
   </div>
 
+  <!-- 패치 -->
+  <div class="page" id="p-patch">
+    <section class="mod grow">
+      <div class="mod-hd"><span class="lbl" data-i18n="pt.bay"></span><span class="lbl lbl-3 hide-m" data-i18n="pt.hint"></span></div>
+      <div class="bay" id="bay"><div class="jrow" id="outs"></div><div class="jrow" id="ins"></div><svg class="cables" id="cables"></svg></div>
+    </section>
+    <section class="mod c4">
+      <div class="mod-hd"><span class="lbl" data-i18n="pt.cables"></span><span class="lbl lbl-3" id="cableCount"></span></div>
+      <div class="mod-body"><div class="list cablelist" id="cableList"></div><div class="t3" id="cableEmpty" data-i18n="pt.empty"></div></div>
+      <div class="mod-foot encs" style="align-items:end">
+        <div class="enc ro" data-i18n-title="pt.amt.t"><output class="v"></output><span class="lbl" data-i18n="pt.amt"></span><input type="range" class="hidden" id="cableAmt" min="-1" max="1" step="0.01" value="0.5"></div>
+        <button class="btn" id="cableDel" data-i18n="sg.delete" style="margin-bottom:var(--s4)"></button>
+      </div>
+    </section>
+  </div>
+
   <!-- 시뮬레이션 -->
   <div class="page" id="p-sim">
     <section class="mod c3">
@@ -346,14 +384,16 @@
   <div class="tab" data-p="sound" data-i18n-title="panel.t"><span class="lbl" data-i18n="page.sound"></span><span class="val" id="dkStyle"></span><span class="meter" style="width:var(--s8)"><b id="dkVol"></b></span></div>
   <div class="tab" data-p="mixer" data-i18n-title="panel.t"><span class="lbl" data-i18n="page.mixer"></span><span class="val" id="dkVoices"></span></div>
   <div class="tab" data-p="song" data-i18n-title="panel.t"><span class="lbl" data-i18n="page.song"></span><span class="val" id="dkSong"></span></div>
+  <div class="tab" data-p="patch" data-i18n-title="panel.t"><span class="lbl" data-i18n="page.patch"></span><span class="val" id="dkPatch"></span></div>
   <div class="tab" data-p="sim" data-i18n-title="panel.t"><span class="lbl" data-i18n="page.sim"></span><span class="val" id="dkSpeed"></span></div>
   <div class="stats" id="dkStats"></div>
 </nav>
 
-<script src="src/i18n.js?v=22"></script>
+<script src="src/i18n.js?v=23"></script>
 <script src="src/mycelium.js?v=13"></script>
-<script src="src/sound.js?v=25"></script>
-<script src="src/song.js?v=1"></script>
-<script src="src/main.js?v=40"></script>
+<script src="src/sound.js?v=26"></script>
+<script src="src/song.js?v=2"></script>
+<script src="src/patch.js?v=1"></script>
+<script src="src/main.js?v=41"></script>
 </body>
 </html>
