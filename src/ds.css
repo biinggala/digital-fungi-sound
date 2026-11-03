@@ -119,6 +119,8 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
 .ro.left { align-items: flex-start; width: auto; }
 .ro > .v { color: var(--text-1); }
 .ro > .lbl { white-space: nowrap; }
+/* 엔코더 라벨은 열 폭(64)을 넘지 않는다: 길면 두 줄로 */
+.enc.ro > .lbl { white-space: normal; text-align: center; max-width: var(--col); line-height: var(--s3); min-height: var(--s6); }
 
 /* ---------- 엔코더 = 호 + 읽기값 ---------- */
 .enc { cursor: ns-resize; user-select: none; touch-action: none; }
@@ -149,6 +151,7 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
 /* ---------- 판 · 모듈 ----------
    판은 12u (288px). 모듈 = 머리(1u) + 몸 + 발(엔코더 줄은 늘 바닥에 붙인다) */
 .panel { height: calc(var(--u) * 12); background: var(--bg-panel); border-top: var(--stroke) solid var(--line); display: flex; }
+.panel:not(.is-open) { display: none; }   /* 판은 열 때만 */
 .mod { display: flex; flex-direction: column; padding: var(--s3) var(--pad) var(--pad); border-right: var(--stroke) solid var(--line); min-width: 0; flex: none; }
 .mod:last-child { border-right: 0; }
 .mod.grow { flex: 1; }
@@ -216,3 +219,6 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
   .dock .tab:last-of-type { border-right: 0; }
   .dock .stats { display: none; }
 }
+
+/* 켜 두는 버튼 (도움말 · 연락처 판이 열려 있음 등): 선택 규칙과 같은 반전 */
+.btn.is-sel { background: var(--sel-bg); color: var(--sel-fg); border-color: var(--sel-bg); }

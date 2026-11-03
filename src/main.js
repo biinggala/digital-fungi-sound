@@ -256,18 +256,21 @@ function draw() {
 }
 
 // 오실로스코프: 전극이 꽂힌 세그먼트의 막전위 V
+const tok = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const SCOPE = { bg: tok('--bg-stage'), grid: tok('--line'), trace: tok('--text-1'), empty: tok('--text-3') };
 function drawScope() {
+  if (panelPage !== 'sim') return;
   const w = scope.width, h = scope.height;
-  sctx.fillStyle = '#151515';
+  sctx.fillStyle = SCOPE.bg;
   sctx.fillRect(0, 0, w, h);
   const yOf = (v) => h - 4 - ((v + 0.4) / 1.5) * (h - 8);
-  sctx.strokeStyle = '#2c2c2c';
+  sctx.strokeStyle = SCOPE.grid;
   sctx.lineWidth = 1;
   sctx.beginPath();
   sctx.moveTo(0, yOf(0)); sctx.lineTo(w, yOf(0));
   sctx.stroke();
   const tr = sim.trace, n = tr.length;
-  sctx.strokeStyle = '#d6d0c4';  // 오실로스코프: 무대와 같은 따뜻한 흰빛
+  sctx.strokeStyle = SCOPE.trace;
   sctx.lineWidth = 2;
   sctx.beginPath();
   let pen = false, any = false;
@@ -280,15 +283,16 @@ function drawScope() {
   }
   sctx.stroke();
   if (!any) {
-    sctx.fillStyle = '#5a5a5a';
-    sctx.font = "17px 'DM Mono', ui-monospace, Menlo, monospace";
-    sctx.fillText(t('scope.empty'), 10, h / 2 + 6);
+    sctx.fillStyle = SCOPE.empty;
+    sctx.font = "24px 'DM Mono', ui-monospace, Menlo, monospace";
+    sctx.fillText(t('scope.empty').toUpperCase(), 16, h / 2 + 8);
   }
 }
 
 // 시간 경과 배율: 실제 1초에 시뮬레이션 며칠이 지나나 (1 tick = 수송 방식별로 보정한 분)
 const simDays = (ticks) => (ticks * UNITS.minPerTick[sim.p.transport]) / 1440;
 const lapse = { t: 0, at: performance.now(), daysPerSec: 0 };
+const ro = (v, label, live) => `<span class="ro left"><span class="v${live ? ' is-live' : ''}">${v}</span><span class="lbl">${t(label)}</span></span>`;
 function updateStats() {
   const now = performance.now();
   if (now - lapse.at > 1000) {
@@ -297,10 +301,17 @@ function updateStats() {
     lapse.t = sim.t; lapse.at = now;
   }
   const st = sim.stats();
-  st.day = simDays(sim.t);
-  st.lapse = lapse.daysPerSec;
-  st.hguMm = st.hgu * UNITS.mmPerPx;
-  $('simStats').textContent = t('stats', st, sim.full);
+  const day = simDays(sim.t);
+  // 독: 늘 보이는 다섯 개
+  $('dkStats').innerHTML = ro(day.toFixed(1), 'st.day') + ro(st.colonies, 'st.colonies') + ro(st.tips, 'st.tips') +
+    ro(`${st.fusions}/${st.loopsUsed}`, 'st.loops') + ro(`${st.fruits}/${st.fruitsTotal}`, 'st.fruits');
+  $('fullTag').classList.toggle('hidden', !sim.full);
+  if (panelPage !== 'sim') return;
+  $('simStats').innerHTML = ro(day.toFixed(1), 'st.day') + ro(lapse.daysPerSec.toFixed(1), 'st.lapse') + ro(st.t, 'tick') +
+    ro(st.colonies + (st.sporeColonies ? ` +${st.sporeColonies}` : ''), 'st.colonies') + ro(st.tips, 'st.tips') + ro(st.nodes, 'st.nodes') +
+    ro(`${st.fusions}/${st.loopsUsed}`, 'st.loops') + ro(st.clashes, 'st.clashes') + ro(st.spikes, 'st.spikes') + ro(st.foodSignals, 'st.food') +
+    ro(st.pool.toFixed(1), 'st.pool') + ro((st.hgu * UNITS.mmPerPx).toFixed(1), 'st.hgu') + ro(`${Math.round(st.matCover * 100)}%`, 'st.mat') +
+    ro(`${st.fruits}/${st.fruitsTotal}`, 'st.fruits');
 }
 
 // 축척 막대: 화면에서 60 ~ 160 px가 되는 깔끔한 길이 (1 px = UNITS.mmPerPx mm, 확대에 따라 바뀐다)
@@ -318,7 +329,15 @@ function updateLegend() {
     : t('help.legend.colony');
 }
 
-function updateSoundStats() { $('soundStats').textContent = sound.enabled ? t('sound.stats', sound.info) : t('sound.off'); }
+function updateSoundStats() {
+  const i = sound.info;
+  $('dkVoices').textContent = sound.enabled ? `${i.voices ?? 0}` : '';
+  $('soundState').textContent = sound.enabled ? '' : t('sound.off');
+  if (panelPage !== 'sound') return;
+  $('soundStats').innerHTML = !sound.enabled ? '' :
+    ro(i.drone ?? '–', 'sd.drone') + ro(i.pad ?? 0, 'sd.pad') + ro(i.grains ?? 0, 'sd.grains') + ro(i.front ?? 0, 'sd.front') + ro(i.voices ?? 0, 'sd.voices') +
+    (i.bpm && i.bpm.length ? ro(`♩${i.bpm.join(' ♩')}`, 'sd.bpm') : '') + (i.reentry ? ro(`♥${i.reentry}`, 'sd.reentry', true) : '');
+}
 
 function loop() {
   if (!ui.paused) for (let k = 0; k < ui.speed; k++) sim.tick();
@@ -326,7 +345,7 @@ function loop() {
   draw();
   drawScope();
   if (rec.mr) recFrame();
-  if (ui.frame % 2 === 0 && sound.enabled && $('bar').dataset.level === '2') {
+  if (ui.frame % 2 === 0 && sound.enabled && panelPage === 'mixer') {
     const lv = sound.levels();
     for (const k in lv) levelers[k](lv[k]);
   }
@@ -403,65 +422,94 @@ new ResizeObserver(() => { if (sim) fitCanvas(); }).observe(stage);
 // 끄는 동안 포인터가 막대 밖으로 나가도 계속 받는다 (포인터가 이미 사라졌으면 그냥 클릭으로 처리)
 function capture(el, e) { try { el.setPointerCapture(e.pointerId); } catch (err) { /* 없음 */ } }
 
-// 블록 막대: 숨은 range 입력이 값의 주인이고, 막대는 그 값을 그리고 바꾼다 (끌기 · 휠)
+// 엔코더: 숨은 range 입력이 값의 주인이고, 호는 그 값을 그리고 바꾼다 (위아래로 끌기 · 휠 · 두 번 누르면 처음 값)
+const ENC_A0 = Math.PI * 0.75, ENC_SPAN = Math.PI * 1.5, ENC_R = 14;
+const encArc = (a0, a1) => {
+  const p = (a) => `${(Math.cos(a) * ENC_R).toFixed(2)} ${(Math.sin(a) * ENC_R).toFixed(2)}`;
+  return `M${p(a0)} A${ENC_R} ${ENC_R} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${p(a1)}`;
+};
 const meters = [];
-function makeMeter(input, n = 10) {
-  const el = input.closest('.ctl').querySelector('.meter');
-  el.innerHTML = '<i></i>'.repeat(n);
-  const blocks = [...el.children];
+function stepper(input) {
   const min = +input.min, max = +input.max, step = +input.step;
   const dec = (input.step.split('.')[1] || '').length;
-  const set = (v) => {
-    v = clamp(Math.round((v - min) / step) * step + min, min, max);
-    input.value = v.toFixed(dec);
-    input.dispatchEvent(new Event('input'));
+  return {
+    min, max, step,
+    frac: () => (input.value - min) / (max - min),
+    set(v) {
+      v = clamp(Math.round((v - min) / step) * step + min, min, max);
+      if (v.toFixed(dec) === input.value) return;
+      input.value = v.toFixed(dec);
+      input.dispatchEvent(new Event('input'));
+    },
   };
-  const fromX = (e) => { const r = el.getBoundingClientRect(); set(min + clamp((e.clientX - r.left) / r.width, 0, 1) * (max - min)); };
+}
+function makeEnc(input) {
+  const el = input.closest('.enc'), st = stepper(input);
+  el.insertAdjacentHTML('afterbegin', '<svg width="32" height="32" viewBox="-16 -16 32 32"><path class="trk" stroke-width="2" fill="none"/>' +
+    '<path class="arc" stroke-width="2" fill="none"/><line class="ndl" stroke-width="2"/></svg>');
+  const [trk, arc, ndl] = el.querySelector('svg').children;
+  trk.setAttribute('d', encArc(ENC_A0, ENC_A0 + ENC_SPAN));
+  const render = () => {
+    const f = st.frac(), a = ENC_A0 + ENC_SPAN * f;
+    arc.setAttribute('d', f > 0.005 ? encArc(ENC_A0, a) : '');
+    ndl.setAttribute('x1', Math.cos(a) * 6); ndl.setAttribute('y1', Math.sin(a) * 6);
+    ndl.setAttribute('x2', Math.cos(a) * ENC_R); ndl.setAttribute('y2', Math.sin(a) * ENC_R);
+  };
+  let y0 = 0, f0 = 0;
+  el.addEventListener('pointerdown', (e) => { capture(el, e); y0 = e.clientY; f0 = st.frac();
+    el.onpointermove = (ev) => st.set(st.min + clamp(f0 + (y0 - ev.clientY) / 140, 0, 1) * (st.max - st.min)); });
+  el.addEventListener('pointerup', () => { el.onpointermove = null; });
+  el.addEventListener('dblclick', () => st.set(+input.defaultValue));
+  el.addEventListener('wheel', (e) => { e.preventDefault(); st.set(+input.value - Math.sign(e.deltaY) * Math.max(st.step, (st.max - st.min) / 40)); }, { passive: false });
+  input.addEventListener('input', render);
+  meters.push(render);
+  render();
+}
+// 가로 막대 (믹서 음량): 끌기 · 휠
+function makeBar(input, el) {
+  const st = stepper(input), fill = el.querySelector('b');
+  const fromX = (e) => { const r = el.getBoundingClientRect(); st.set(st.min + clamp((e.clientX - r.left) / r.width, 0, 1) * (st.max - st.min)); };
   el.addEventListener('pointerdown', (e) => { capture(el, e); fromX(e); el.onpointermove = fromX; });
   el.addEventListener('pointerup', () => { el.onpointermove = null; });
-  el.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    set(+input.value - Math.sign(e.deltaY) * Math.max(step, (max - min) / 40));
-  }, { passive: false });
-  const render = () => {
-    const f = (input.value - min) / (max - min), k = Math.max(Math.round(f * n), f > 0 ? 1 : 0);
-    blocks.forEach((b, i) => b.classList.toggle('on', i < k));
-  };
+  el.addEventListener('wheel', (e) => { e.preventDefault(); st.set(+input.value - Math.sign(e.deltaY) * Math.max(st.step, (st.max - st.min) / 40)); }, { passive: false });
+  const render = () => { fill.style.width = `${st.frac() * 100}%`; };
   input.addEventListener('input', render);
   meters.push(render);
   render();
 }
 
-// 시뮬레이션 막대: 값을 그대로 보여주고 모델 파라미터에 넣는다
+// 시뮬레이션 손잡이: 값을 그대로 보여주고 모델 파라미터에 넣는다
 for (const id of ['speed', ...TUNABLE]) {
-  const input = $(id), out = input.closest('.ctl').querySelector('output');
+  const input = $(id), out = input.closest('.enc').querySelector('output');
   const sync = () => {
-    out.textContent = input.value;
-    if (id === 'speed') ui.speed = parseInt(input.value, 10);
+    out.textContent = id === 'speed' ? `×${input.value}` : input.value;
+    if (id === 'speed') { ui.speed = parseInt(input.value, 10); $('dkSpeed').textContent = `×${input.value}`; }
     else if (sim) sim.p[id] = parseFloat(input.value);
   };
   input.addEventListener('input', sync);
   sync();
-  makeMeter(input, id === 'speed' ? 12 : 10);
+  makeEnc(input);
 }
 
-// 소리 막대: 퍼센트로 보여준다
+// 소리 손잡이: 퍼센트로 보여준다
 for (const [id, apply] of [['volume', (v) => sound.setVolume(v)], ['reverb', (v) => sound.setReverb(v)], ['echo', (v) => sound.setEcho(v)]]) {
-  const input = $(id), out = input.closest('.ctl').querySelector('output');
-  input.addEventListener('input', () => { out.textContent = Math.round(input.value * 100); apply(parseFloat(input.value)); });
-  out.textContent = Math.round(input.value * 100);
-  makeMeter(input, 10);
+  const input = $(id), out = input.closest('.enc').querySelector('output');
+  const show = () => { out.textContent = Math.round(input.value * 100); if (id === 'volume') $('dkVol').style.width = `${input.value * 100}%`; };
+  input.addEventListener('input', () => { show(); apply(parseFloat(input.value)); });
+  show();
+  makeEnc(input);
 }
 
-// 도구 · 보기 · 토양
+// 도구 · 보기 · 수송 · 토양 · 매트. 선택은 어디서나 is-sel (반전)
+const pick = (sel, on) => document.querySelectorAll(sel).forEach((b) => b.classList.toggle('is-sel', on(b)));
 function setTool(tool) {
   ui.tool = tool;
-  document.querySelectorAll('[data-tool]').forEach((b) => b.classList.toggle('on', b.dataset.tool === tool));
+  pick('[data-tool]', (b) => b.dataset.tool === tool);
 }
 document.querySelectorAll('[data-tool]').forEach((b) => b.addEventListener('click', () => setTool(b.dataset.tool)));
 function setView(v) {
   ui.view = v;
-  document.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('on', b.dataset.view === v));
+  pick('[data-view]', (b) => b.dataset.view === v);
   updateLegend();
 }
 document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
@@ -469,43 +517,50 @@ document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('clic
 document.querySelectorAll('[data-transport]').forEach((b) => b.addEventListener('click', () => {
   if (ui.transport === b.dataset.transport) return;
   ui.transport = b.dataset.transport;
-  document.querySelectorAll('[data-transport]').forEach((o) => o.classList.toggle('on', o === b));
+  pick('[data-transport]', (o) => o === b);
   reset();
 }));
-$('matToggle').addEventListener('click', () => {
-  ui.showMat = !ui.showMat;
-  $('matToggle').textContent = ui.showMat ? '■' : '□';
-  $('matToggle').classList.toggle('on', ui.showMat);
-});
+setTool(ui.tool); setView(ui.view); pick('[data-transport]', (b) => b.dataset.transport === ui.transport);
+// 켜고 끄는 버튼: 글자로 상태를 말하고, 꺼지면 흐리게
+function paintToggle(id, label, on) {
+  $(id).textContent = `${t(label)} ${t(on ? 'on' : 'off')}`;
+  $(id).classList.toggle('is-off', !on);
+}
+$('matToggle').addEventListener('click', () => { ui.showMat = !ui.showMat; paintToggle('matToggle', 'mat', ui.showMat); });
 $('soil').addEventListener('click', () => {
   ui.showField = !ui.showField;
   ui.fieldDirty = true;
-  $('soil').textContent = ui.showField ? '■' : '□';
-  $('soil').classList.toggle('on', ui.showField);
+  paintToggle('soil', 'soil', ui.showField);
 });
 
+// 아이콘 + 글자 버튼 (폰에서는 글자를 숨긴다)
+function iconBtn(id, icon, label) { $(id).innerHTML = `${icon}<span class="txt"> ${label}</span>`; }
 function togglePause() {
   ui.paused = !ui.paused;
-  $('pause').textContent = ui.paused ? `▸ ${t('play')}` : `❚❚ ${t('pause')}`;
+  iconBtn('pause', ui.paused ? '▸' : '❚❚', t(ui.paused ? 'play' : 'pause'));
 }
 $('pause').addEventListener('click', togglePause);
 $('fit').addEventListener('click', toggleFit);
 $('reset').addEventListener('click', reset);
-// 조절 바 단계: 0 첫 줄만 → 1 성장 · 전기 → 2 소리 · 믹서 → 다시 0. 무대 크기는 ResizeObserver가 따라간다. 단계는 브라우저에 기억
-function setBarLevel(lv) {
-  $('bar').dataset.level = lv;
-  $('barToggle').textContent = ['▾', '▾ ♪', '▴'][lv];
-  try { localStorage.setItem('fungi.barLevel', lv); } catch (e) { /* 이번 방문 동안만 */ }
-}
-const cycleBar = () => setBarLevel((+$('bar').dataset.level + 1) % 3);
-$('barToggle').addEventListener('click', cycleBar);
-try {
-  const lv = localStorage.getItem('fungi.barLevel');
-  setBarLevel(lv !== null ? +lv : localStorage.getItem('fungi.barCollapsed') ? 0 : 2);  // 예전 '접힘' 기록도 따른다
-} catch (e) { setBarLevel(2); }
 
-function toggleHelp() { $('help').hidden = !$('help').hidden; $('helpBtn').classList.toggle('on', !$('help').hidden); }
-function toggleContact() { $('contact').hidden = !$('contact').hidden; $('contactBtn').classList.toggle('on', !$('contact').hidden); }
+// 판: 독 탭으로 하나씩 연다. C는 소리 → 믹서 → 시뮬레이션 → 닫기. 연 판은 브라우저에 기억. 무대 크기는 ResizeObserver가 따라간다
+const PAGES = ['sound', 'mixer', 'sim'];
+let panelPage = null;
+function openPanel(p) {
+  panelPage = p;
+  document.querySelectorAll('.dock .tab').forEach((x) => x.classList.toggle('is-sel', x.dataset.p === p));
+  document.querySelectorAll('.page').forEach((x) => x.classList.toggle('is-on', x.id === `p-${p}`));
+  $('panel').classList.toggle('is-open', !!p);
+  if (p === 'sound') updateSoundStats();
+  if (p === 'sim' && sim) updateStats();
+  try { localStorage.setItem('fungi.panel', p || ''); } catch (e) { /* 이번 방문 동안만 */ }
+}
+document.querySelectorAll('.dock .tab').forEach((x) => x.addEventListener('click', () => openPanel(panelPage === x.dataset.p ? null : x.dataset.p)));
+const cyclePanel = () => openPanel(PAGES[PAGES.indexOf(panelPage) + 1] || null);
+try { const p = localStorage.getItem('fungi.panel'); openPanel(PAGES.includes(p) ? p : null); } catch (e) { openPanel(null); }
+
+function toggleHelp() { $('help').hidden = !$('help').hidden; $('helpBtn').classList.toggle('is-sel', !$('help').hidden); }
+function toggleContact() { $('contact').hidden = !$('contact').hidden; $('contactBtn').classList.toggle('is-sel', !$('contact').hidden); }
 $('contactBtn').addEventListener('click', toggleContact);
 // 이메일 복사: 클립보드가 막혀 있으면 주소를 선택해 둬서 바로 복사할 수 있게
 $('copyMail').addEventListener('click', async () => {
@@ -519,7 +574,7 @@ $('helpBtn').addEventListener('click', toggleHelp);
 function soundLive() { return sound.enabled && !sound.muted; }
 function paintSound() {
   $('soundOn').textContent = `♪ ${t(soundLive() ? 'soundOnDone' : 'soundOff')}`;
-  $('soundOn').classList.toggle('live', soundLive());
+  $('soundOn').classList.toggle('is-off', !soundLive());
 }
 async function toggleSound() {
   if (!sound.enabled) await sound.start();
@@ -529,69 +584,50 @@ async function toggleSound() {
 }
 $('soundOn').addEventListener('click', toggleSound);
 
-// 스타일 프리셋: 모든 채널이 한 스타일에 있으면 그 이름이 켜지고, 섞여 있으면 '섞임'
+// 스타일 프리셋: 모든 채널이 한 스타일에 있으면 그 줄이 선택되고, 섞여 있으면 머리에 '섞임'
+const SW_CLASS = { lab: 'lab', eno: 'eno', moss: 'moss', greenhouse: 'green', aphex: 'aphex', sunra: 'ra' };
 for (const k of STYLE_ORDER) {
   const b = document.createElement('button');
-  b.className = 'opt';
   b.dataset.preset = k;
-  b.dataset.i18nTitle = `style.${k}`;
-  b.innerHTML = `<span class="sw" style="background:var(${STYLE_COLOR[k]})"></span>${STYLES[k].short}`;
+  b.innerHTML = `<span class="sw ${SW_CLASS[k]}"></span><span class="name">${STYLES[k].short}</span><span class="t3" data-i18n="style.${k}"></span>`;
   b.addEventListener('click', () => { sound.preset(k); showSoundControls(); });
   $('presets').append(b);
 }
-const mixedTag = document.createElement('span');
-mixedTag.className = 'lbl';
-mixedTag.dataset.i18n = 'style.mix';
-$('presets').append(mixedTag);
 function renderPresets() {
   const ps = Object.values(sound.pos), p0 = ps[0];
   const pure = ps.every((p) => p === p0) && Number.isInteger(p0) ? STYLE_ORDER[p0] : null;
-  document.querySelectorAll('[data-preset]').forEach((b) => b.classList.toggle('on', b.dataset.preset === pure));
-  mixedTag.hidden = !!pure;
+  pick('[data-preset]', (b) => b.dataset.preset === pure);
+  $('mixedTag').hidden = !!pure;
+  $('dkStyle').textContent = pure ? STYLES[pure].short : t('style.mix');
 }
 
-// 믹서: 채널마다 스타일 띠 (블록이 스타일 색, 손잡이 근처일수록 밝다) + 음량 막대
-const TRACK_BLOCKS = 6 * STYLE_ORDER.length;
+// 믹서: 채널마다 스타일 띠 (칸 = 스타일, 윗선이 범주색, 섞인 만큼 밝다) + 음량 막대
 const tracks = [];
 const levelers = {};  // 채널 → 지금 소리 크기를 그 줄에 비추는 함수
 for (const ch of CHANNELS) {
   const row = document.createElement('div');
-  row.className = 'chan ctl';
-  row.innerHTML = `<span class="lbl" data-i18n="ch.${ch.key}"></span><span class="track"></span><output></output>` +
-    (ch.noVol ? '<span></span>' : `<span class="meter"></span><input type="range" class="hidden" min="0" max="1.5" step="0.05" value="1">`);
+  row.className = 'chan';
+  row.innerHTML = `<span class="name" data-i18n="ch.${ch.key}"></span><span class="track">${'<i></i>'.repeat(STYLE_ORDER.length)}<b></b></span><output></output>` +
+    (ch.noVol ? '<span></span>' : '<span class="bar"><span class="meter"><b></b></span></span><input type="range" class="hidden" min="0" max="1.5" step="0.05" value="1">');
   $('mixer').append(row);
   const track = row.querySelector('.track'), out = row.querySelector('output'), last = STYLE_ORDER.length - 1;
-  track.innerHTML = Array.from({ length: TRACK_BLOCKS }, (_, i) =>
-    `<i style="background:var(${STYLE_COLOR[STYLE_ORDER[Math.floor(i / 6)]]})"></i>`).join('') + '<b></b>';
-  const blocks = [...track.querySelectorAll('i')], mark = track.querySelector('b'), lbl = row.querySelector('.lbl');
-  const base = new Float32Array(TRACK_BLOCKS), near = new Float32Array(TRACK_BLOCKS);
-  let shown = 0, drawn = -1;
+  const cells = [...track.querySelectorAll('i')], mark = track.querySelector('b'), name = row.querySelector('.name');
+  const w = new Float32Array(STYLE_ORDER.length);
   const render = () => {
     const pos = sound.pos[ch.key];
-    blocks.forEach((b, i) => {
-      const p = ((i + 0.5) / TRACK_BLOCKS) * STYLE_ORDER.length - 0.5;  // 블록 가운데의 스타일 위치
-      base[i] = 0.16 + 0.84 * Math.max(0, 1 - Math.abs(p - pos) * 1.4);
-      near[i] = Math.max(0, 1 - Math.abs(p - pos) * 0.9);
-      b.style.opacity = base[i];
-    });
+    cells.forEach((c, i) => { w[i] = Math.max(0, 1 - Math.abs(i - pos)); c.style.setProperty('--w', (0.25 * w[i]).toFixed(3)); });
     mark.style.left = `${((pos + 0.5) / STYLE_ORDER.length) * 100}%`;
     out.textContent = sound.mixLabel(ch.key);
-    drawn = -1;  // 손잡이가 옮겨졌으니 반응도 새로 그린다
   };
-  // 소리에 반응: 손잡이 근처 블록이 그 크기만큼 밝아지고 솟고, 채널 이름이 밝아진다 (바로 오르고 천천히 내려감)
+  // 소리에 반응: 섞인 칸이 그 크기만큼 밝아지고 채널 이름이 1단 글자색이 된다 (바로 오르고 천천히 내려감)
+  let shown = 0, drawn = -1;
   levelers[ch.key] = (lv) => {
     shown = Math.max(lv, shown * 0.85);
-    const q = Math.round(shown * 40) / 40;
+    const q = Math.round(shown * 20) / 20;
     if (q === drawn) return;
     drawn = q;
-    blocks.forEach((b, i) => {
-      const k = q * near[i];
-      b.style.opacity = base[i] + (1 - base[i]) * k;
-      b.style.transform = k > 0.01 ? `scaleY(${1 + 0.6 * k})` : '';
-    });
-    const c = Math.round(124 + (255 - 124) * q);
-    lbl.style.color = q > 0.01 ? `rgb(${c}, ${c}, ${c})` : '';
-    mark.style.boxShadow = q > 0.05 ? `0 0 ${2 + 8 * q}px rgba(255, 255, 255, ${0.3 + 0.6 * q})` : '';
+    cells.forEach((c, i) => c.style.setProperty('--w', ((0.25 + 0.75 * q) * w[i]).toFixed(3)));
+    name.classList.toggle('is-loud', q > 0.05);
   };
   const fromX = (e, snap) => {
     const r = track.getBoundingClientRect();
@@ -607,14 +643,14 @@ for (const ch of CHANNELS) {
   const vol = row.querySelector('input');
   if (vol) {
     vol.addEventListener('input', () => sound.setVol(ch.key, parseFloat(vol.value)));
-    makeMeter(vol, 6);
+    makeBar(vol, row.querySelector('.bar'));
   }
 }
 
-// 건반: 으뜸음 (흰 건반 7 + 검은 건반 5)
-const WHITE = [0, 2, 4, 5, 7, 9, 11], BLACK = { 1: 11, 3: 27, 6: 59, 8: 75, 10: 91 };
-WHITE.forEach((pc, k) => $('keys').insertAdjacentHTML('beforeend', `<span class="w" data-pc="${pc}" style="left:${k * 16}px"></span>`));
-for (const [pc, left] of Object.entries(BLACK)) $('keys').insertAdjacentHTML('beforeend', `<span class="b" data-pc="${pc}" style="left:${left}px"></span>`);
+// 건반: 으뜸음 (한 옥타브, 흰 건반 7 + 검은 건반 5)
+const WHITE = [0, 2, 4, 5, 7, 9, 11], KW = 100 / 7;
+WHITE.forEach((pc, k) => $('keys').insertAdjacentHTML('beforeend', `<i class="w" data-pc="${pc}" style="left:${k * KW}%;width:${KW}%"></i>`));
+for (const [pc, k] of [[1, 1], [3, 2], [6, 4], [8, 5], [10, 6]]) $('keys').insertAdjacentHTML('beforeend', `<i class="b" data-pc="${pc}" style="left:${(k - 0.32) * KW}%;width:${KW * 0.64}%"></i>`);
 $('keys').addEventListener('click', (e) => {
   const pc = e.target.dataset.pc;
   if (pc === undefined) return;
@@ -623,25 +659,33 @@ $('keys').addEventListener('click', (e) => {
 });
 function renderKey() {
   const pc = sound.tonic % 12;
-  for (const k of $('keys').children) k.classList.toggle('on', +k.dataset.pc === pc);
+  for (const k of $('keys').children) k.classList.toggle('is-sel', +k.dataset.pc === pc);
   $('keyName').textContent = NOTE_NAMES[pc];
 }
-for (const k of Object.keys(SCALES)) $('soundScale').add(new Option(k, k));
-$('soundScale').addEventListener('change', (e) => sound.setScale(e.target.value));
+// 음계: 목록에서 고른다
+for (const k of Object.keys(SCALES)) {
+  const b = document.createElement('button');
+  b.dataset.scale = k;
+  b.dataset.i18n = `scale.${k}`;
+  b.addEventListener('click', () => { sound.setScale(k); renderScale(); });
+  $('scales').append(b);
+}
+function renderScale() { pick('[data-scale]', (b) => b.dataset.scale === sound.scaleKey); }
 
-// 소리 쪽 상태를 조작 줄에 다시 그린다 (프리셋을 누른 뒤 등)
+// 소리 쪽 상태를 판에 다시 그린다 (프리셋을 누른 뒤 등)
 function showSoundControls() {
+  const vols = $('mixer').querySelectorAll('.chan');
   CHANNELS.forEach((ch, i) => {
-    const vol = $('mixer').children[i].querySelector('input');
+    const vol = vols[i].querySelector('input');
     if (vol) vol.value = sound.vol[ch.key];
   });
   $('reverb').value = sound.reverbAmt;
   $('echo').value = sound.echoAmt;
-  for (const id of ['reverb', 'echo']) $(id).closest('.ctl').querySelector('output').textContent = Math.round($(id).value * 100);
-  $('soundScale').value = sound.scaleKey;
+  for (const id of ['reverb', 'echo']) $(id).closest('.enc').querySelector('output').textContent = Math.round($(id).value * 100);
   meters.forEach((r) => r());
   tracks.forEach((r) => r());
   renderKey();
+  renderScale();
   renderPresets();
 }
 
@@ -673,7 +717,7 @@ function recFrame() {
   const day = `DAY ${simDays(sim.t).toFixed(1)}`;
   c.fillText(day, w - 18 * u - c.measureText(day).width, h - 18 * u);
   const sec = (performance.now() - rec.at) / 1000;
-  if (ui.frame % 10 === 0) $('rec').textContent = `■ ${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
+  if (ui.frame % 10 === 0) iconBtn('rec', '■', `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`);
   if (sec >= REC_MAX) stopRec();
 }
 
@@ -694,7 +738,7 @@ function startRec() {
   rec.mr.ondataavailable = (e) => { if (e.data.size) rec.chunks.push(e.data); };
   rec.mr.onstop = saveRec;
   rec.mr.start(1000);
-  $('rec').classList.add('on');
+  $('rec').classList.add('is-rec');
 }
 
 function stopRec() {
@@ -715,8 +759,8 @@ function saveRec() {
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
   rec.last = { name, type, size: blob.size, url: a.href };
   rec.mr = null;
-  $('rec').classList.remove('on');
-  $('rec').textContent = `● ${t('rec')}`;
+  $('rec').classList.remove('is-rec');
+  iconBtn('rec', '●', t('rec'));
 }
 
 $('rec').addEventListener('click', () => {
@@ -761,18 +805,27 @@ $('midiOut').addEventListener('change', (e) => selectMidi(e.target.value));
 // 정적 문구는 applyI18n, 상태에 따라 바뀌는 문구와 선택지는 여기서 다시 쓴다
 function relabel() {
   applyI18n();
-  $('pause').textContent = ui.paused ? `▸ ${t('play')}` : `❚❚ ${t('pause')}`;
-  $('reset').textContent = `↺ ${t('reset')}`;
-  if (!rec.mr) $('rec').textContent = `● ${t('rec')}`;
+  keepGreek();
+  iconBtn('pause', ui.paused ? '▸' : '❚❚', t(ui.paused ? 'play' : 'pause'));
+  iconBtn('reset', '↺', t('reset'));
+  if (!rec.mr) iconBtn('rec', '●', t('rec'));
+  paintToggle('soil', 'soil', ui.showField);
+  paintToggle('matToggle', 'mat', ui.showMat);
+  renderPresets();
   $('midiBtn').disabled = !midiOK;
   if (!midiOK) $('midiBtn').title = t('midi.na');
   if (midiAccess) { const v = $('midiOut').value; fillMidi(); $('midiOut').value = v; }
   $('rec').disabled = !recOK;
   if (!recOK) $('rec').title = t('rec.na');
   paintSound();
-  for (const o of $('soundScale').options) o.text = t(`scale.${o.value}`);
   if (sim) { updateStats(); updateLegend(); }
   updateSoundStats();
+}
+// 라벨은 대문자로 바뀌는데, μ · ε는 그리스 대문자(Μ · Ε)가 되면 M · E로 읽힌다 → 그 글자만 원래대로
+function keepGreek() {
+  for (const el of document.querySelectorAll('.lbl[data-i18n]')) {
+    if (/[με]/.test(el.textContent)) el.innerHTML = el.textContent.replace(/([με])/g, '<span class="keep">$1</span>');
+  }
 }
 function toggleLang() { setLang(LANG === 'ko' ? 'en' : 'ko'); relabel(); }
 $('lang').addEventListener('click', toggleLang);
@@ -785,9 +838,9 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'm') toggleSound();
   else if (e.key === 'l') toggleLang();
   else if (e.key === 'h') toggleHelp();
-  else if (e.key === 'Escape') { if (!$('help').hidden) toggleHelp(); if (!$('contact').hidden) toggleContact(); }
+  else if (e.key === 'Escape') { if (!$('help').hidden) toggleHelp(); else if (!$('contact').hidden) toggleContact(); else openPanel(null); }
   else if (e.key === 'f') toggleFit();
-  else if (e.key === 'c') cycleBar();
+  else if (e.key === 'c') cyclePanel();
   else if (e.key === '1') setTool('spore');
   else if (e.key === '2') setTool('food');
   else if (e.key === '3') setTool('stim');

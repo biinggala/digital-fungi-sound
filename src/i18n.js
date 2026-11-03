@@ -36,6 +36,11 @@ const I18N = {
       `대치 ${s.clashes}   스파이크 ${s.spikes}   먹이 발견 ${s.foodSignals}   양분 ${s.pool.toFixed(1)}   HGU ${s.hguMm.toFixed(1)} mm   ` +
       `매트 ${Math.round(s.matCover * 100)}%   버섯 ${s.fruits}/${s.fruitsTotal}` + (s.sporeColonies ? `   포자 군체 ${s.sporeColonies}` : '') + (full ? '   용량 가득' : ''),
 
+    'page.sound': '소리', 'page.mixer': '믹서', 'page.sim': '시뮬레이션', 'panel.t': '판 열기 · 닫기 (C: 소리 → 믹서 → 시뮬레이션 → 닫기)',
+    'm.output': '출력', 'm.now': '지금', 'm.env': '환경', 'm.net': '네트워크', on: '켬', off: '끔', fit: '맞춤',
+    'st.day': '일째', 'st.lapse': '일 / 초', 'st.colonies': '군체', 'st.tips': '팁', 'st.nodes': '세그먼트', 'st.loops': '고리',
+    'st.clashes': '대치', 'st.spikes': '스파이크', 'st.food': '먹이 발견', 'st.pool': '양분', 'st.hgu': 'HGU mm', 'st.mat': '매트', 'st.fruits': '버섯',
+    'sd.drone': '드론', 'sd.pad': '화음 음 수', 'sd.grains': '성장음 / 초', 'sd.front': '파면', 'sd.voices': '발음', 'sd.bpm': '템포', 'sd.reentry': '재진입',
     sound: '소리', soundOn: '소리 켜기', soundOnDone: '소리 켜짐', soundOff: '소리 꺼짐', 'soundOn.t': '소리 켜기 · 끄기 (M). 브라우저는 클릭한 뒤에만 소리를 낼 수 있다',
     volume: '볼륨',
     style: '스타일', 'style.mix': '섞임', key: '키', scale: '음계', reverb: '잔향', echo: '에코',
@@ -56,10 +61,10 @@ const I18N = {
     'help.legend.flow': (a, b) => `${a}흡수해서 내보내는 쪽 · ${b}받아서 쓰는 쪽 · 굵기 = 흐름이 많았던 경로`,
     'help.body': '<b>도구</b> 클릭 · 1 포자 · 2 먹이(끌어서 칠하기) · 3 자극 · 4 전극<br>' +
       '<b>화면</b> 끌어서 이동 (먹이 도구는 오른쪽 버튼으로 끌기) · 휠/핀치 확대 · F 꽉 채우기 ↔ 전체 보기<br>' +
-      '<b>키</b> Space 재생/정지 · R 리셋 · V 보기 · M 소리 켜기·끄기 · L 한/EN · H 도움말 · C 조절 바 펼치기 (성장·전기 → 소리 → 접기)<br>' +
-      '<b>막대</b> 끌거나 휠로 조절<br>' +
+      '<b>키</b> Space 재생/정지 · R 리셋 · V 보기 · M 소리 켜기·끄기 · L 한/EN · H 도움말 · C 판 열기 (소리 → 믹서 → 시뮬레이션 → 닫기) · Esc 닫기<br>' +
+      '<b>손잡이</b> 위아래로 끌거나 휠로 조절 · 두 번 누르면 처음 값<br>' +
       '<b>믹서</b> 띠는 왼쪽부터 연구실 · Eno · Moss Garden · Green-House · Aphex · Sun Ra. 두 스타일 사이면 두 악기가 함께 울리고, 놓을 때 스타일 근처면 붙는다. 음량 0 = 채널 끄기 (드론을 끄면 \'우웅\'이 사라진다)<br>' +
-      '<b>척도</b> 1 tick ≈ 33분, 1 px ≈ 0.26 mm (화면 가로 ≈ 24 cm). 실측 균사 전선 속도(8.4 mm/일)에 맞춘 값. 상태 줄에 날짜와 배속, 무대 오른쪽 아래에 축척<br>' +
+      '<b>척도</b> 1 tick ≈ 33분, 1 px ≈ 0.26 mm (화면 가로 ≈ 24 cm). 실측 균사 전선 속도(8.4 mm/일)에 맞춘 값. 날짜와 배속은 시뮬레이션 판의 네트워크 칸, 무대 오른쪽 아래에 축척<br>' +
       '<b>재진입</b> 900 tick쯤 키운 뒤 회복 ε를 0.01로 올리고 가운데를 자극<br>' +
       '<b>결실</b> 매트가 땅을 다 채우거나 양분이 모자라기 시작하면, 저장 양분으로 버섯을 올린다. 버섯 쪽으로 양분이 흐르며 줄기가 굵어지고, 다 자라면 포자를 날린다. 포자는 빈 땅에서만 싹튼다',
   },
@@ -67,7 +72,7 @@ const I18N = {
     lang: '한', langTitle: '한국어 (L)', help: 'Help', helpTitle: 'Legend · shortcuts (H)',
     contact: 'Contact', contactTitle: 'Made by · contact', email: 'Email', copy: 'Copy', copied: 'Copied',
     'midi.connect': 'Connect', 'midi.off': '— off —', 'midi.none': 'no ports',
-    'midi.t': 'Send mycelium events as MIDI notes to a synth or DAW (Chrome / Edge). Channels: 1 growth · 2 food · 3 wave start · 4 spikes · 5 reentry · 6 electrode · 7 drone (CC74 = flow) · 8 chord (CC1 = wavefront) · 9 mushroom. Needs Sound on; Mute keeps MIDI going',
+    'midi.t': 'Send mycelium events as MIDI notes to a synth or DAW (Chrome / Edge). Channels: 1 growth · 2 food · 3 wave start · 4 spikes · 5 reentry · 6 electrode · 7 drone (CC74 = flow) · 8 chord (CC1 = wavefront) · 9 mushroom. Needs sound started; MIDI keeps going when sound is off',
     'midi.na': 'MIDI works in Chrome or Edge on the GitHub Pages site',
     'midi.denied': 'MIDI permission was denied. Allow it in the site settings next to the address bar',
     rec: 'Rec', 'rec.t': 'Record the stage with sound and save a video file (up to 60 s; press again to stop and save)',
@@ -96,6 +101,11 @@ const I18N = {
       `clashes ${s.clashes}   spikes ${s.spikes}   food found ${s.foodSignals}   stored ${s.pool.toFixed(1)}   HGU ${s.hguMm.toFixed(1)} mm   ` +
       `mat ${Math.round(s.matCover * 100)}%   mushrooms ${s.fruits}/${s.fruitsTotal}` + (s.sporeColonies ? `   spore colonies ${s.sporeColonies}` : '') + (full ? '   full' : ''),
 
+    'page.sound': 'Sound', 'page.mixer': 'Mixer', 'page.sim': 'Sim', 'panel.t': 'Open · close panels (C: sound → mixer → sim → close)',
+    'm.output': 'Output', 'm.now': 'Now', 'm.env': 'Environment', 'm.net': 'Network', on: 'On', off: 'Off', fit: 'Fit',
+    'st.day': 'Day', 'st.lapse': 'Days / s', 'st.colonies': 'Colonies', 'st.tips': 'Tips', 'st.nodes': 'Segments', 'st.loops': 'Loops',
+    'st.clashes': 'Clashes', 'st.spikes': 'Spikes', 'st.food': 'Food found', 'st.pool': 'Stored', 'st.hgu': 'HGU mm', 'st.mat': 'Mat', 'st.fruits': 'Mushrooms',
+    'sd.drone': 'Drone', 'sd.pad': 'Chord notes', 'sd.grains': 'Growth / s', 'sd.front': 'Front', 'sd.voices': 'Voices', 'sd.bpm': 'Tempo', 'sd.reentry': 'Reentry',
     sound: 'Sound', soundOn: 'Sound on', soundOnDone: 'Sound on', soundOff: 'Sound off', 'soundOn.t': 'Sound on / off (M). Browsers only allow audio after a click',
     volume: 'Vol',
     style: 'Style', 'style.mix': 'mixed', key: 'Key', scale: 'Scale', reverb: 'Reverb', echo: 'Echo',
@@ -116,10 +126,10 @@ const I18N = {
     'help.legend.flow': (a, b) => `${a}absorbing & exporting · ${b}receiving & consuming · width = how much has flowed`,
     'help.body': '<b>Tools</b> click · 1 spore · 2 food (drag to paint) · 3 stim · 4 probe<br>' +
       '<b>View</b> drag to pan (with Food, right-drag) · wheel/pinch to zoom · F fill ↔ whole world<br>' +
-      '<b>Keys</b> Space play/pause · R reset · V view · M sound on/off · L 한/EN · H help · C expand controls (growth·electric → sound → collapse)<br>' +
-      '<b>Bars</b> drag or scroll to adjust<br>' +
+      '<b>Keys</b> Space play/pause · R reset · V view · M sound on/off · L 한/EN · H help · C open panels (sound → mixer → sim → close) · Esc close<br>' +
+      '<b>Knobs</b> drag up/down or scroll · double-click resets<br>' +
       '<b>Mixer</b> strip runs Lab · Eno · Moss Garden · Green-House · Aphex · Sun Ra. Between two styles both instruments play; released near a style it snaps. Vol 0 = channel off (turn the drone off to remove the hum)<br>' +
-      '<b>Scale</b> 1 tick ≈ 33 min, 1 px ≈ 0.26 mm (stage ≈ 24 cm wide), calibrated to a measured hyphal front speed (8.4 mm/day). Day and time-lapse in the status line, scale bar bottom-right<br>' +
+      '<b>Scale</b> 1 tick ≈ 33 min, 1 px ≈ 0.26 mm (stage ≈ 24 cm wide), calibrated to a measured hyphal front speed (8.4 mm/day). Day and time-lapse in the Sim panel, scale bar bottom-right<br>' +
       '<b>Reentry</b> grow ~900 ticks, raise Recovery ε to 0.01, stimulate the center<br>' +
       '<b>Fruiting</b> once the mat has filled the ground or nutrients start to run short, reserves go into mushrooms. Nutrient flows toward them (cords thicken), mature caps release spores, which germinate only on free ground',
   },
