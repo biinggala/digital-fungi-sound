@@ -349,7 +349,7 @@ function loop() {
     const lv = sound.levels();
     for (const k in lv) levelers[k](lv[k]);
   }
-  if (ui.frame % 10 === 0) { updateStats(); updateSoundStats(); }
+  if (ui.frame % 10 === 0) { updateStats(); updateSoundStats(); watchChord(); }
   ui.frame++;
   requestAnimationFrame(loop);
 }
@@ -544,7 +544,7 @@ $('fit').addEventListener('click', toggleFit);
 $('reset').addEventListener('click', reset);
 
 // 판: 독 탭으로 하나씩 연다. C는 소리 → 믹서 → 시뮬레이션 → 닫기. 연 판은 브라우저에 기억. 무대 크기는 ResizeObserver가 따라간다
-const PAGES = ['sound', 'mixer', 'sim'];
+const PAGES = ['chord', 'sound', 'mixer', 'sim'];
 let panelPage = null;
 function openPanel(p) {
   panelPage = p;
@@ -672,6 +672,102 @@ for (const k of Object.keys(SCALES)) {
 }
 function renderScale() { pick('[data-scale]', (b) => b.dataset.scale === sound.scaleKey); }
 
+// ---------- 화음 ----------
+// 근음은 5도권 링에서, 종류는 목록에서. 무엇을 누르든 '음계' 모드였다면 '고정'이 된다. 고른 값은 브라우저에 기억
+const FIFTHS = [0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5];
+const PCN = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
+const DEG = { 0: 'R', 2: '2', 3: '♭3', 4: '3', 5: '4', 6: '♭5', 7: '5', 8: '♯5', 9: '6', 10: '♭7', 11: '7', 14: '9', 15: '♯9' };
+const chordName = ([r, q]) => `${PCN[r]} ${q}`;
+function setChord(c) {
+  sound.setChord(c);
+  try { localStorage.setItem('fungi.chord', JSON.stringify(sound.chord)); } catch (e) { /* 이번 방문 동안만 */ }
+  renderChord();
+}
+function drawRing() {
+  const { root, qual, mode } = sound.chord, k = FIFTHS.indexOf(root), ri = 52, ro = 100;
+  const pt = (r, a) => `${(Math.cos(a) * r).toFixed(2)} ${(Math.sin(a) * r).toFixed(2)}`;
+  $('ring').classList.toggle('is-off', mode === 'scale');
+  $('ring').innerHTML = FIFTHS.map((pc, i) => {
+    const a0 = ((i - 0.5) / 12) * 2 * Math.PI - Math.PI / 2, a1 = ((i + 0.5) / 12) * 2 * Math.PI - Math.PI / 2, d = (i - k + 12) % 12;
+    const cls = mode === 'scale' ? '' : pc === root ? 'is-sel' : [1, 11, 2, 10].includes(d) ? 'near' : '';
+    return `<g class="s ${cls}" data-pc="${pc}"><path d="M${pt(ro, a0)} A${ro} ${ro} 0 0 1 ${pt(ro, a1)} L${pt(ri, a1)} A${ri} ${ri} 0 0 0 ${pt(ri, a0)}Z"/>` +
+      `<text x="${(Math.cos((a0 + a1) / 2) * 76).toFixed(1)}" y="${(Math.sin((a0 + a1) / 2) * 76 + 4).toFixed(1)}" text-anchor="middle">${PCN[pc]}</text></g>`;
+  }).join('') + (mode === 'scale'
+    ? `<text class="c2" x="0" y="4" text-anchor="middle">${t('ch.m.scale').toUpperCase()}</text>`
+    : `<text class="c1" x="0" y="2" text-anchor="middle">${PCN[root]}</text><text class="c2" x="0" y="20" text-anchor="middle">${qual.toUpperCase()}</text>`);
+}
+$('ring').addEventListener('click', (e) => {
+  const g = e.target.closest('.s');
+  if (g) setChord({ root: +g.dataset.pc, mode: sound.chord.mode === 'scale' ? 'hold' : sound.chord.mode });
+});
+for (const [q] of CHORDS) {
+  const b = document.createElement('button');
+  b.dataset.qual = q;
+  b.textContent = q;
+  b.addEventListener('click', () => setChord({ qual: q, mode: sound.chord.mode === 'scale' ? 'hold' : sound.chord.mode }));
+  $('quals').append(b);
+}
+document.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => setChord({ mode: b.dataset.mode })));
+// 구성음 건반: 지금 화음의 근음부터 두 옥타브 (흰 건반 15개)
+const CKW = 100 / 15;
+function drawChordKb() {
+  const on = sound.chordOn, [r, q] = sound.current, base = 48 + r;  // C3 위로
+  const tones = on ? CHORD[q].map((i) => base + i) : [];
+  const lit = new Set(tones);
+  let h = '', x = 0;
+  for (let m = 48; x < 15; m++) {
+    const pc = m % 12;
+    if ([1, 3, 6, 8, 10].includes(pc)) continue;
+    h += `<i class="w${lit.has(m) ? ' on' : ''}${m === base && on ? ' root' : ''}" style="left:${x * CKW}%;width:${CKW}%"></i>`;
+    if ([0, 2, 5, 7, 9].includes(pc) && x < 14) {
+      const b = m + 1;
+      h += `<i class="b${lit.has(b) ? ' on' : ''}${b === base && on ? ' root' : ''}" style="left:${(x + 0.68) * CKW}%;width:${CKW * 0.64}%"></i>`;
+    }
+    x++;
+  }
+  $('chordKb').innerHTML = h;
+  $('chordTones').innerHTML = on ? CHORD[q].map((i) => `<span class="ro"><span class="v">${PCN[(r + i) % 12]}</span><span class="lbl">${DEG[i] ?? i}</span></span>`).join('') : '';
+}
+let chordShown = '';
+function renderChord() {
+  const { mode, qual } = sound.chord, cur = sound.current;
+  drawRing();
+  pick('[data-qual]', (b) => mode !== 'scale' && b.dataset.qual === qual);
+  pick('[data-mode]', (b) => b.dataset.mode === mode);
+  $('chordHint').textContent = t(`ch.hint.${mode}`);
+  $('chordNow').textContent = sound.chordOn ? chordName(cur) : '';
+  $('dkChord').textContent = sound.chordOn ? chordName(cur) : t('ch.m.scale');
+  $('prog').innerHTML = mode === 'network'
+    ? sound.progressionList.map((c, i) => `<span class="${i === sound.prog % 4 ? 'is-sel' : ''}">${chordName(c)}</span>`).join('') : '';
+  drawChordKb();
+  chordShown = `${mode}${sound.prog}${cur}`;
+}
+// 진행은 소리 엔진 안에서 넘어가므로 가끔 보고 바뀌었으면 다시 그린다
+function watchChord() { const { mode } = sound.chord; if (`${mode}${sound.prog}${sound.current}` !== chordShown) renderChord(); }
+try { const c = JSON.parse(localStorage.getItem('fungi.chord') || 'null'); if (c && CHORD[c.qual]) sound.setChord(c); } catch (e) { /* 기본값 */ }
+
+// 공간 XY: 가로 = 에코, 세로 = 잔향 (위가 많이). 값의 주인은 SOUND 판의 같은 손잡이
+function renderXY() {
+  const x = +$('echo').value, y = 1 - +$('reverb').value, xy = $('xy');
+  xy.querySelector('.h').style.top = `${y * 100}%`; xy.querySelector('.vv').style.left = `${x * 100}%`;
+  xy.querySelector('.pt').style.left = `${x * 100}%`; xy.querySelector('.pt').style.top = `${y * 100}%`;
+  $('xyEcho').textContent = Math.round(x * 100); $('xyRev').textContent = Math.round((1 - y) * 100);
+}
+{
+  const xy = $('xy');
+  const move = (e) => {
+    const r = xy.getBoundingClientRect();
+    for (const [id, v] of [['echo', (e.clientX - r.left) / r.width], ['reverb', 1 - (e.clientY - r.top) / r.height]]) {
+      $(id).value = clamp(v, 0, 1).toFixed(2);
+      $(id).dispatchEvent(new Event('input'));
+    }
+  };
+  xy.addEventListener('pointerdown', (e) => { capture(xy, e); move(e); xy.onpointermove = move; });
+  xy.addEventListener('pointerup', () => { xy.onpointermove = null; });
+  $('echo').addEventListener('input', renderXY);
+  $('reverb').addEventListener('input', renderXY);
+}
+
 // 소리 쪽 상태를 판에 다시 그린다 (프리셋을 누른 뒤 등)
 function showSoundControls() {
   const vols = $('mixer').querySelectorAll('.chan');
@@ -687,6 +783,8 @@ function showSoundControls() {
   renderKey();
   renderScale();
   renderPresets();
+  renderXY();
+  renderChord();
 }
 
 // ---------- 녹화 ----------
@@ -812,6 +910,7 @@ function relabel() {
   paintToggle('soil', 'soil', ui.showField);
   paintToggle('matToggle', 'mat', ui.showMat);
   renderPresets();
+  if ($('ring').childElementCount) renderChord();
   $('midiBtn').disabled = !midiOK;
   if (!midiOK) $('midiBtn').title = t('midi.na');
   if (midiAccess) { const v = $('midiOut').value; fillMidi(); $('midiOut').value = v; }

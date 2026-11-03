@@ -74,6 +74,33 @@
 
   #scope { width: 100%; height: calc(var(--u) * 4); display: block; }
 
+  /* 화음: 근음 링 (5도권) */
+  .ring { display: block; margin: 0 auto; }
+  .ring .s { cursor: pointer; }
+  .ring .s path { fill: var(--fill); stroke: var(--bg-panel); stroke-width: var(--stroke-2); }
+  .ring .s text { fill: var(--text-3); font: var(--t-m) var(--font); }
+  .ring .s.near text { fill: var(--text-1); }
+  .ring .s:hover path { fill: var(--line); }
+  .ring .s.is-sel path { fill: var(--sel-bg); } .ring .s.is-sel text { fill: var(--sel-fg); }
+  .ring .c1 { fill: var(--text-em); font: var(--t-l) var(--font); }
+  .ring .c2 { fill: var(--text-2); font: var(--t-s) var(--font); letter-spacing: var(--t-s-track); }
+  .ring.is-off .s path { fill: var(--bg-panel); stroke: var(--fill); }
+  /* 구성음 건반 (보기 전용): 울리는 음 = 선택 반전, 근음 = 아래 홈 */
+  .kb.show { cursor: default; }
+  .kb.show i:hover { background: inherit; }
+  .kb .w.on, .kb .b.on { background: var(--sel-bg); border-color: var(--sel-bg); }
+  .kb .root::after { content: ''; position: absolute; left: 25%; right: 25%; bottom: var(--s1); height: var(--stroke-2); background: var(--sel-fg); }
+  .prog { display: flex; gap: var(--s1); }
+  .prog span { flex: 1; height: var(--u); display: flex; align-items: center; justify-content: center; border: var(--stroke) solid var(--line-ctl); border-radius: var(--r); color: var(--text-2); white-space: nowrap; }
+  .prog span.is-sel { background: var(--sel-bg); color: var(--sel-fg); border-color: var(--sel-bg); }
+  /* 공간 XY: 가로 = 에코, 세로 = 잔향 */
+  .xy { position: relative; width: calc(var(--u) * 7); height: calc(var(--u) * 7); cursor: crosshair; touch-action: none;
+    background-image: linear-gradient(var(--fill) 1px, transparent 1px), linear-gradient(90deg, var(--fill) 1px, transparent 1px);
+    background-size: var(--u) var(--u); }
+  .xy .h, .xy .vv { position: absolute; background: var(--text-2); pointer-events: none; }
+  .xy .h { left: 0; right: 0; height: var(--stroke); } .xy .vv { top: 0; bottom: 0; width: var(--stroke); }
+  .xy .pt { position: absolute; width: var(--s2); height: var(--s2); margin: calc(var(--s1) * -1); background: var(--text-em); pointer-events: none; }
+
   @media (max-width: 600px) {
     .stage-tools { display: flex; }
     .stage-tools .seg > button { min-width: var(--u); justify-content: center; }
@@ -82,6 +109,7 @@
     #mixer { grid-template-columns: minmax(0, 1fr); }
     .chan output { display: none; }
     .chan { grid-template-columns: calc(var(--col) + var(--s4)) minmax(0, 1fr) calc(var(--col) - var(--s4)); gap: var(--s2); }
+    .xy { width: 100%; height: auto; aspect-ratio: 1; }
   }
 </style>
 </head>
@@ -135,6 +163,42 @@
 </main>
 
 <div class="panel" id="panel">
+
+  <!-- 화음 -->
+  <div class="page" id="p-chord">
+    <section class="mod c3">
+      <div class="mod-hd"><span class="lbl" data-i18n="ch.root"></span><span class="lbl lbl-3" data-i18n="ch.fifths"></span></div>
+      <div class="mod-body"><svg class="ring" id="ring" width="200" height="200" viewBox="-104 -104 208 208"></svg></div>
+    </section>
+    <section class="mod c2">
+      <div class="mod-hd"><span class="lbl" data-i18n="ch.quality"></span></div>
+      <div class="mod-body"><div class="list cols-2 scales" id="quals"></div></div>
+    </section>
+    <section class="mod c3">
+      <div class="mod-hd"><span class="lbl" data-i18n="ch.source"></span></div>
+      <div class="mod-body">
+        <div class="list" id="chordMode">
+          <button data-mode="scale" style="grid-template-columns:1fr auto"><span class="name" data-i18n="ch.m.scale"></span><span class="lbl" data-i18n="ch.m.scale.d"></span></button>
+          <button data-mode="hold" style="grid-template-columns:1fr auto"><span class="name" data-i18n="ch.m.hold"></span><span class="lbl" data-i18n="ch.m.hold.d"></span></button>
+          <button data-mode="network" style="grid-template-columns:1fr auto"><span class="name" data-i18n="ch.m.network"></span><span class="lbl" data-i18n="ch.m.network.d"></span></button>
+        </div>
+      </div>
+      <div class="mod-foot t3" id="chordHint"></div>
+    </section>
+    <section class="mod grow">
+      <div class="mod-hd"><span class="lbl" data-i18n="ch.now"></span><span class="val-em" id="chordNow"></span></div>
+      <div class="mod-body">
+        <div class="kb show" id="chordKb"></div>
+        <div class="encs" id="chordTones" style="justify-content:start"></div>
+      </div>
+      <div class="mod-foot"><div class="prog" id="prog"></div></div>
+    </section>
+    <section class="mod c3">
+      <div class="mod-hd"><span class="lbl" data-i18n="ch.space"></span></div>
+      <div class="mod-body"><div class="frame xy" id="xy"><i class="h"></i><i class="vv"></i><i class="pt"></i></div></div>
+      <div class="mod-foot encs"><span class="ro"><span class="v" id="xyEcho"></span><span class="lbl" data-i18n="echo"></span></span><span class="ro"><span class="v" id="xyRev"></span><span class="lbl" data-i18n="reverb"></span></span></div>
+    </section>
+  </div>
 
   <!-- 소리 -->
   <div class="page" id="p-sound">
@@ -231,15 +295,16 @@
 </div>
 
 <nav class="dock">
+  <div class="tab" data-p="chord" data-i18n-title="panel.t"><span class="lbl" data-i18n="page.chord"></span><span class="val" id="dkChord"></span></div>
   <div class="tab" data-p="sound" data-i18n-title="panel.t"><span class="lbl" data-i18n="page.sound"></span><span class="val" id="dkStyle"></span><span class="meter" style="width:var(--s8)"><b id="dkVol"></b></span></div>
   <div class="tab" data-p="mixer" data-i18n-title="panel.t"><span class="lbl" data-i18n="page.mixer"></span><span class="val" id="dkVoices"></span></div>
   <div class="tab" data-p="sim" data-i18n-title="panel.t"><span class="lbl" data-i18n="page.sim"></span><span class="val" id="dkSpeed"></span></div>
   <div class="stats" id="dkStats"></div>
 </nav>
 
-<script src="src/i18n.js?v=19"></script>
+<script src="src/i18n.js?v=20"></script>
 <script src="src/mycelium.js?v=13"></script>
-<script src="src/sound.js?v=24"></script>
-<script src="src/main.js?v=35"></script>
+<script src="src/sound.js?v=25"></script>
+<script src="src/main.js?v=36"></script>
 </body>
 </html>
