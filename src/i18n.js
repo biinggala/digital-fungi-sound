@@ -41,7 +41,13 @@ const I18N = {
     'ch.hint.scale': '화음 없이 고른 음계로 연주한다 (예전 소리). 근음이나 종류를 누르면 고정 화음이 된다',
     'ch.hint.hold': '균사체의 모든 음 (사건음 · 드론 · 화음)이 이 화음의 구성음에서 나온다',
     'ch.hint.network': '고른 화음을 I로 두고 I – vi – IV – V7 (단조면 i – VI – iv – V7). 군체가 두 배로 커질 때와 버섯이 올라올 때 한 칸씩 넘어간다',
-    'page.sound': '소리', 'page.mixer': '믹서', 'page.sim': '시뮬레이션', 'panel.t': '판 열기 · 닫기 (C: 화음 → 소리 → 믹서 → 시뮬레이션 → 닫기)',
+    'page.song': '곡', 'sg.arrange': '배치', 'sg.scene': '장면', 'sg.transport': '재생', 'sg.capture': '+ 지금을 장면으로', 'sg.load': '불러오기', 'sg.update': '덮어쓰기', 'sg.delete': '삭제',
+    'sg.empty': '장면이 없다. 소리 · 화음 · 시뮬레이션을 맞춘 뒤 + 지금을 장면으로 를 누르면 지금 설정이 장면이 된다',
+    'sg.hint': '장면 = 설정 스냅샷 · 누르면 고르고, 두 번 누르면 바로 그 장면으로', 'sg.next': '다음', 'sg.max': '최대 마디', 'sg.max.t': '상태 조건이 이 마디 수 안에 안 차면 그래도 넘어간다',
+    'sg.t.bars': '마디', 'sg.t.tips': '팁', 'sg.t.loops': '고리', 'sg.t.fruit': '버섯', 'sg.play': '곡', 'sg.loop': '장면',
+    'sg.c.bars': (n) => `→ ${n}마디`, 'sg.c.tips': (n, m) => `→ 팁 ≥ ${n} · ${m}마디 안`, 'sg.c.loops': (n, m) => `→ 고리 ≥ ${n} · ${m}마디 안`, 'sg.c.fruit': (n, m) => `→ 버섯 +${n} · ${m}마디 안`, 'sg.c.end': '끝',
+    'sg.bar': '마디', 'sg.sceneBar': '장면 마디', 'sg.progress': '다음까지',
+    'page.sound': '소리', 'page.mixer': '믹서', 'page.sim': '시뮬레이션', 'panel.t': '판 열기 · 닫기 (C: 화음 → 소리 → 믹서 → 곡 → 시뮬레이션 → 닫기)',
     'm.output': '출력', 'm.now': '지금', 'm.env': '환경', 'm.net': '네트워크', on: '켬', off: '끔', fit: '맞춤',
     'st.day': '일째', 'st.lapse': '일 / 초', 'st.colonies': '군체', 'st.tips': '팁', 'st.nodes': '세그먼트', 'st.loops': '고리',
     'st.clashes': '대치', 'st.spikes': '스파이크', 'st.food': '먹이 발견', 'st.pool': '양분', 'st.hgu': 'HGU mm', 'st.mat': '매트', 'st.fruits': '버섯',
@@ -66,7 +72,7 @@ const I18N = {
     'help.legend.flow': (a, b) => `${a}흡수해서 내보내는 쪽 · ${b}받아서 쓰는 쪽 · 굵기 = 흐름이 많았던 경로`,
     'help.body': '<b>도구</b> 클릭 · 1 포자 · 2 먹이(끌어서 칠하기) · 3 자극 · 4 전극<br>' +
       '<b>화면</b> 끌어서 이동 (먹이 도구는 오른쪽 버튼으로 끌기) · 휠/핀치 확대 · F 꽉 채우기 ↔ 전체 보기<br>' +
-      '<b>키</b> Space 재생/정지 · R 리셋 · V 보기 · M 소리 켜기·끄기 · L 한/EN · H 도움말 · C 판 열기 (화음 → 소리 → 믹서 → 시뮬레이션 → 닫기) · Esc 닫기<br>' +
+      '<b>키</b> Space 재생/정지 · R 리셋 · V 보기 · M 소리 켜기·끄기 · L 한/EN · H 도움말 · C 판 열기 (화음 → 소리 → 믹서 → 곡 → 시뮬레이션 → 닫기) · Esc 닫기<br>' +
       '<b>손잡이</b> 위아래로 끌거나 휠로 조절 · 두 번 누르면 처음 값<br>' +
       '<b>믹서</b> 띠는 왼쪽부터 연구실 · Eno · Moss Garden · Green-House · Aphex · Sun Ra. 두 스타일 사이면 두 악기가 함께 울리고, 놓을 때 스타일 근처면 붙는다. 음량 0 = 채널 끄기 (드론을 끄면 \'우웅\'이 사라진다)<br>' +
       '<b>척도</b> 1 tick ≈ 33분, 1 px ≈ 0.26 mm (화면 가로 ≈ 24 cm). 실측 균사 전선 속도(8.4 mm/일)에 맞춘 값. 날짜와 배속은 시뮬레이션 판의 네트워크 칸, 무대 오른쪽 아래에 축척<br>' +
@@ -111,7 +117,13 @@ const I18N = {
     'ch.hint.scale': 'Plays the chosen scale with no chord (the original sound). Pick a root or quality to hold a chord',
     'ch.hint.hold': 'Every note the mycelium makes (events, drone, pad) comes from this chord',
     'ch.hint.network': 'Your chord is I, then I – vi – IV – V7 (minor: i – VI – iv – V7). Advances each time the colony doubles and when a mushroom appears',
-    'page.sound': 'Sound', 'page.mixer': 'Mixer', 'page.sim': 'Sim', 'panel.t': 'Open · close panels (C: chord → sound → mixer → sim → close)',
+    'page.song': 'Song', 'sg.arrange': 'Arrange', 'sg.scene': 'Scene', 'sg.transport': 'Transport', 'sg.capture': '+ Capture scene', 'sg.load': 'Load', 'sg.update': 'Update', 'sg.delete': 'Delete',
+    'sg.empty': 'No scenes yet. Set up sound, chord and sim, then press + Capture scene to save the current settings as a scene',
+    'sg.hint': 'scene = settings snapshot · click to select, double-click to jump there', 'sg.next': 'Next', 'sg.max': 'Max bars', 'sg.max.t': 'If a state condition is not met within this many bars, move on anyway',
+    'sg.t.bars': 'Bars', 'sg.t.tips': 'Tips', 'sg.t.loops': 'Loops', 'sg.t.fruit': 'Fruit', 'sg.play': 'Song', 'sg.loop': 'Scene',
+    'sg.c.bars': (n) => `→ ${n} bars`, 'sg.c.tips': (n, m) => `→ tips ≥ ${n} · within ${m}`, 'sg.c.loops': (n, m) => `→ loops ≥ ${n} · within ${m}`, 'sg.c.fruit': (n, m) => `→ +${n} mushroom · within ${m}`, 'sg.c.end': 'end',
+    'sg.bar': 'Bar', 'sg.sceneBar': 'Scene bar', 'sg.progress': 'To next',
+    'page.sound': 'Sound', 'page.mixer': 'Mixer', 'page.sim': 'Sim', 'panel.t': 'Open · close panels (C: chord → sound → mixer → song → sim → close)',
     'm.output': 'Output', 'm.now': 'Now', 'm.env': 'Environment', 'm.net': 'Network', on: 'On', off: 'Off', fit: 'Fit',
     'st.day': 'Day', 'st.lapse': 'Days / s', 'st.colonies': 'Colonies', 'st.tips': 'Tips', 'st.nodes': 'Segments', 'st.loops': 'Loops',
     'st.clashes': 'Clashes', 'st.spikes': 'Spikes', 'st.food': 'Food found', 'st.pool': 'Stored', 'st.hgu': 'HGU mm', 'st.mat': 'Mat', 'st.fruits': 'Mushrooms',
@@ -136,7 +148,7 @@ const I18N = {
     'help.legend.flow': (a, b) => `${a}absorbing & exporting · ${b}receiving & consuming · width = how much has flowed`,
     'help.body': '<b>Tools</b> click · 1 spore · 2 food (drag to paint) · 3 stim · 4 probe<br>' +
       '<b>View</b> drag to pan (with Food, right-drag) · wheel/pinch to zoom · F fill ↔ whole world<br>' +
-      '<b>Keys</b> Space play/pause · R reset · V view · M sound on/off · L 한/EN · H help · C open panels (chord → sound → mixer → sim → close) · Esc close<br>' +
+      '<b>Keys</b> Space play/pause · R reset · V view · M sound on/off · L 한/EN · H help · C open panels (chord → sound → mixer → song → sim → close) · Esc close<br>' +
       '<b>Knobs</b> drag up/down or scroll · double-click resets<br>' +
       '<b>Mixer</b> strip runs Lab · Eno · Moss Garden · Green-House · Aphex · Sun Ra. Between two styles both instruments play; released near a style it snaps. Vol 0 = channel off (turn the drone off to remove the hum)<br>' +
       '<b>Scale</b> 1 tick ≈ 33 min, 1 px ≈ 0.26 mm (stage ≈ 24 cm wide), calibrated to a measured hyphal front speed (8.4 mm/day). Day and time-lapse in the Sim panel, scale bar bottom-right<br>' +

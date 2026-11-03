@@ -1,4 +1,6 @@
 'use strict';
+
+var songReady = false;  // 곡 부분이 준비되기 전에 판이 열릴 수 있다 (저장된 판을 시작할 때 연다)
 // 렌더링 & UI — 모델은 mycelium.js, 소리는 sound.js, 문구는 i18n.js
 
 const $ = (id) => document.getElementById(id);
@@ -294,6 +296,7 @@ function drawScope() {
 // 시간 경과 배율: 실제 1초에 시뮬레이션 며칠이 지나나 (1 tick = 수송 방식별로 보정한 분)
 const simDays = (ticks) => (ticks * UNITS.minPerTick[sim.p.transport]) / 1440;
 const lapse = { t: 0, at: performance.now(), daysPerSec: 0 };
+let simSt = null;  // 마지막 통계 (곡의 상태 조건이 본다)
 const ro = (v, label, live) => `<span class="ro left"><span class="v${live ? ' is-live' : ''}">${v}</span><span class="lbl">${t(label)}</span></span>`;
 function updateStats() {
   const now = performance.now();
@@ -303,6 +306,7 @@ function updateStats() {
     lapse.t = sim.t; lapse.at = now;
   }
   const st = sim.stats();
+  simSt = st;
   const day = simDays(sim.t);
   // 독: 늘 보이는 다섯 개
   $('dkStats').innerHTML = ro(day.toFixed(1), 'st.day') + ro(st.colonies, 'st.colonies') + ro(st.tips, 'st.tips') +
@@ -344,6 +348,7 @@ function updateSoundStats() {
 function loop() {
   if (!ui.paused) for (let k = 0; k < ui.speed; k++) sim.tick();
   sound.update(sim, ui.paused, ui.speed);
+  songTick();
   draw();
   drawScope();
   if (rec.mr) recFrame();
@@ -432,12 +437,12 @@ const encArc = (a0, a1) => {
 };
 const meters = [];
 function stepper(input) {
-  const min = +input.min, max = +input.max, step = +input.step;
-  const dec = (input.step.split('.')[1] || '').length;
+  // 범위는 그때그때 읽는다 (곡의 '다음' 손잡이는 조건 종류에 따라 범위가 바뀐다)
   return {
-    min, max, step,
-    frac: () => (input.value - min) / (max - min),
+    get min() { return +input.min; }, get max() { return +input.max; }, get step() { return +input.step; },
+    frac() { return (input.value - this.min) / (this.max - this.min); },
     set(v) {
+      const { min, max, step } = this, dec = (input.step.split('.')[1] || '').length;
       v = clamp(Math.round((v - min) / step) * step + min, min, max);
       if (v.toFixed(dec) === input.value) return;
       input.value = v.toFixed(dec);
@@ -546,7 +551,7 @@ $('fit').addEventListener('click', toggleFit);
 $('reset').addEventListener('click', reset);
 
 // 판: 독 탭으로 하나씩 연다. C는 소리 → 믹서 → 시뮬레이션 → 닫기. 연 판은 브라우저에 기억. 무대 크기는 ResizeObserver가 따라간다
-const PAGES = ['chord', 'sound', 'mixer', 'sim'];
+const PAGES = ['chord', 'sound', 'mixer', 'song', 'sim'];
 let panelPage = null;
 function openPanel(p) {
   panelPage = p;
@@ -555,6 +560,7 @@ function openPanel(p) {
   $('panel').classList.toggle('is-open', !!p);
   if (p === 'sound') updateSoundStats();
   if (p === 'sim' && sim) updateStats();
+  if (p === 'song' && songReady) renderSong();
   try { localStorage.setItem('fungi.panel', p || ''); } catch (e) { /* 이번 방문 동안만 */ }
 }
 document.querySelectorAll('.dock .tab').forEach((x) => x.addEventListener('click', () => openPanel(panelPage === x.dataset.p ? null : x.dataset.p)));
@@ -770,6 +776,139 @@ function renderXY() {
   $('reverb').addEventListener('input', renderXY);
 }
 
+// ---------- 곡 ----------
+// 장면 = 지금 설정의 스냅샷 (채널 스타일 · 음량, 잔향 · 에코, 키 · 음계, 화음, 시뮬레이션 파라미터). 곡은 브라우저에 기억
+const song = new Song();
+try { song.load(JSON.parse(localStorage.getItem('fungi.song') || 'null')); } catch (e) { /* 빈 곡 */ }
+let sceneSel = song.scenes.length ? 0 : -1;
+const saveSong = () => { try { localStorage.setItem('fungi.song', JSON.stringify(song)); } catch (e) { /* 이번 방문 동안만 */ } };
+function snapshot() {
+  return {
+    pos: { ...sound.pos }, vol: { ...sound.vol }, reverb: sound.reverbAmt, echo: sound.echoAmt,
+    tonic: sound.tonic, scale: sound.scaleKey, chord: { ...sound.chord },
+    params: Object.fromEntries(TUNABLE.map((k) => [k, +$(k).value])),
+  };
+}
+function applySnap(sn) {
+  for (const ch of CHANNELS) {
+    if (sn.pos[ch.key] != null) sound.setMix(ch.key, sn.pos[ch.key], false);
+    if (sn.vol[ch.key] != null) sound.vol[ch.key] = sn.vol[ch.key];
+  }
+  sound.setTonic(sn.tonic);
+  sound.setScale(sn.scale);
+  sound.setReverb(sn.reverb);
+  sound.setEcho(sn.echo);
+  sound.setChord(sn.chord);
+  try { localStorage.setItem('fungi.chord', JSON.stringify(sound.chord)); } catch (e) { /* 이번만 */ }
+  for (const [k, v] of Object.entries(sn.params || {})) {
+    if (!$(k)) continue;
+    $(k).value = v;
+    $(k).dispatchEvent(new Event('input'));
+  }
+  showSoundControls();
+}
+// 장면 요약: 스타일 (모든 채널이 한 스타일이면 그 이름, 아니면 성장 채널 기준) · 화음 또는 키 · 음계
+function sceneStyle(sn) {
+  const ps = Object.values(sn.pos), p0 = ps[0];
+  return STYLE_ORDER[Math.round(ps.every((p) => p === p0) ? p0 : sn.pos.grow ?? p0)];
+}
+function sceneSummary(sn) {
+  const st = STYLES[sceneStyle(sn)].short;
+  const harm = sn.chord && sn.chord.mode !== 'scale'
+    ? `${PCN[sn.chord.root]} ${sn.chord.qual}${sn.chord.mode === 'network' ? ' ↻' : ''}`
+    : `${NOTE_NAMES[sn.tonic % 12]} ${t(`scale.${sn.scale}`)}`;
+  return `${st} · ${harm}`;
+}
+const condText = (sc, last) => last ? t('sg.c.end') : t(`sg.c.${sc.next.type}`, sc.next.n, sc.next.max);
+function renderSong() {
+  const n = song.scenes.length, total = song.scenes.reduce((a, sc) => a + song.weight(sc), 0);
+  $('songEmpty').hidden = n > 0;
+  $('arr').hidden = n === 0;
+  $('arr').innerHTML = song.scenes.map((sc, i) => `<button class="scene ${SW_CLASS[sceneStyle(sc.snap)]}${i === sceneSel ? ' is-sel' : ''}" data-i="${i}" style="flex:${song.weight(sc) / total}">` +
+    `<span class="lbl lbl-1">${sc.name} <span class="t3">${sceneSummary(sc.snap)}</span></span>` +
+    `<span class="lbl">${condText(sc, i === n - 1)}</span>${i === song.cur ? '<i class="run"></i>' : ''}</button>`).join('');
+  pick('[data-smode]', (b) => b.dataset.smode === song.mode);
+  const sc = song.scenes[sceneSel];
+  for (const id of ['sceneLoad', 'sceneUpdate', 'sceneLeft', 'sceneRight', 'sceneDel']) $(id).disabled = !sc;
+  $('sceneName').textContent = sc ? sc.name : '';
+  $('sceneSum').textContent = sc ? sceneSummary(sc.snap) : '';
+  pick('[data-next]', (b) => !!sc && b.dataset.next === sc.next.type);
+  if (sc) {
+    const T = NEXT_TYPES[sc.next.type], nN = $('nextN'), nM = $('nextMax');
+    nN.min = T.min; nN.max = T.max; nN.step = T.step; nN.value = sc.next.n;
+    nM.value = sc.next.max;
+    $('nextLbl').textContent = t(`sg.t.${sc.next.type}`);
+    nN.closest('.enc').querySelector('output').textContent = sc.next.n;
+    nM.closest('.enc').querySelector('output').textContent = sc.next.max;
+    nM.closest('.enc').style.visibility = sc.next.type === 'bars' ? 'hidden' : '';
+  }
+  meters.forEach((r) => r());
+  renderSongClock();
+}
+// 매 프레임 바뀌는 것만: 진행 막대 · 마디 · 독
+function renderSongClock() {
+  const run = $('arr').querySelector('.run');
+  if (run) run.style.width = `${song.progress * 100}%`;
+  const cur = song.scenes[song.cur], playing = song.mode !== 'stop' && cur;
+  $('dkSong').innerHTML = cur ? `${cur.name}${playing ? ` <span class="is-live">${song.bar.toFixed(1)}</span>` : ''}` : '';
+  if (panelPage !== 'song') return;
+  $('songRo').innerHTML = ro(cur ? song.bar.toFixed(1) : '–', 'sg.bar', playing) + ro(cur ? cur.name : '–', 'sg.scene') +
+    ro(cur ? song.sceneBar.toFixed(1) : '–', 'sg.sceneBar') + ro(cur ? `${Math.round(song.progress * 100)}%` : '–', 'sg.progress');
+}
+function enterScene(i) {
+  song.enter(i, simSt);
+  applySnap(song.scenes[i].snap);
+  sceneSel = i;
+  renderSong();
+}
+$('arr').addEventListener('click', (e) => { const b = e.target.closest('.scene'); if (b) { sceneSel = +b.dataset.i; renderSong(); } });
+$('arr').addEventListener('dblclick', (e) => { const b = e.target.closest('.scene'); if (b) enterScene(+b.dataset.i); });
+$('capture').addEventListener('click', () => { sceneSel = song.add(snapshot()); saveSong(); renderSong(); });
+$('sceneLoad').addEventListener('click', () => enterScene(sceneSel));
+$('sceneUpdate').addEventListener('click', () => { song.scenes[sceneSel].snap = snapshot(); saveSong(); renderSong(); });
+$('sceneLeft').addEventListener('click', () => { sceneSel = song.move(sceneSel, -1); saveSong(); renderSong(); });
+$('sceneRight').addEventListener('click', () => { sceneSel = song.move(sceneSel, 1); saveSong(); renderSong(); });
+$('sceneDel').addEventListener('click', () => { song.remove(sceneSel); sceneSel = Math.min(sceneSel, song.scenes.length - 1); saveSong(); renderSong(); });
+document.querySelectorAll('[data-next]').forEach((b) => b.addEventListener('click', () => {
+  if (sceneSel < 0) return;
+  song.setNextType(sceneSel, b.dataset.next); saveSong(); renderSong();
+}));
+for (const [id, key] of [['nextN', 'n'], ['nextMax', 'max']]) {
+  const input = $(id);
+  input.addEventListener('input', () => {
+    input.closest('.enc').querySelector('output').textContent = input.value;
+    const sc = song.scenes[sceneSel];
+    if (sc) { sc.next[key] = +input.value; saveSong(); renderSong(); }
+  });
+  makeEnc(input);
+}
+{
+  const bpm = $('songBpm');
+  bpm.value = song.bpm;
+  const show = () => { bpm.closest('.enc').querySelector('output').textContent = bpm.value; };
+  bpm.addEventListener('input', () => { song.bpm = +bpm.value; show(); saveSong(); });
+  show();
+  makeEnc(bpm);
+}
+// 재생: ▶ 곡은 멈춘 자리에서 이어가고 (처음이면 A부터), ⟲ 장면은 고른 장면을 반복, ■는 자동 변화를 멈춘다
+document.querySelectorAll('[data-smode]').forEach((b) => b.addEventListener('click', () => {
+  const m = b.dataset.smode;
+  song.mode = m;
+  if (m === 'song' && song.cur < 0 && song.scenes.length) { song.start(simSt); applySnap(song.scenes[0].snap); sceneSel = 0; }
+  if (m === 'scene' && sceneSel >= 0 && song.cur !== sceneSel) enterScene(sceneSel);
+  renderSong();
+}));
+songReady = true;
+let songT = performance.now();
+function songTick() {
+  const now = performance.now(), dt = Math.min(0.25, (now - songT) / 1000);
+  songT = now;
+  if (ui.paused || song.cur < 0 || !simSt) return;
+  const i = song.tick(dt, simSt);
+  if (i >= 0) { applySnap(song.scenes[i].snap); sceneSel = i; renderSong(); }
+  else if (ui.frame % 3 === 0) renderSongClock();
+}
+
 // 소리 쪽 상태를 판에 다시 그린다 (프리셋을 누른 뒤 등)
 function showSoundControls() {
   const vols = $('mixer').querySelectorAll('.chan');
@@ -913,6 +1052,7 @@ function relabel() {
   paintToggle('matToggle', 'mat', ui.showMat);
   renderPresets();
   if ($('ring').childElementCount) renderChord();
+  if (songReady) renderSong();
   $('midiBtn').disabled = !midiOK;
   if (!midiOK) $('midiBtn').title = t('midi.na');
   if (midiAccess) { const v = $('midiOut').value; fillMidi(); $('midiOut').value = v; }

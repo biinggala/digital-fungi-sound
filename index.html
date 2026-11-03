@@ -74,6 +74,20 @@
 
   #scope { width: 100%; height: calc(var(--u) * 4); display: block; }
 
+  /* 곡: 장면 블록. 폭 = 길이(마디), 윗선 = 장면의 스타일 범주색, 지금 장면은 아래 신호색 막대로 진행 */
+  .arr { display: flex; gap: var(--stroke-2); height: calc(var(--u) * 3); }
+  .arr[hidden] { display: none; }
+  .scene { position: relative; min-width: calc(var(--col) + var(--s4)); background: var(--fill); border-top: var(--stroke-2) solid var(--text-3);
+    padding: var(--s1) var(--s2); display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; cursor: pointer; text-align: left; }
+  .scene:hover { background: var(--line); }
+  .scene .lbl, .scene .t3 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .scene.is-sel { background: var(--sel-bg); color: var(--sel-fg); }
+  .scene.is-sel .lbl, .scene.is-sel .t3 { color: var(--n6); }
+  .scene.lab { border-top-color: var(--c-lab); } .scene.eno { border-top-color: var(--c-eno); } .scene.moss { border-top-color: var(--c-moss); }
+  .scene.green { border-top-color: var(--c-green); } .scene.aphex { border-top-color: var(--c-aphex); } .scene.ra { border-top-color: var(--c-ra); }
+  .scene .run { position: absolute; left: 0; bottom: 0; height: var(--stroke-2); background: var(--live); }
+  .row-btns { display: flex; flex-wrap: wrap; gap: var(--s1); }
+
   /* 화음: 근음 링 (5도권) */
   .ring { display: block; margin: 0 auto; }
   .ring .s { cursor: pointer; }
@@ -110,6 +124,7 @@
     .chan output { display: none; }
     .chan { grid-template-columns: calc(var(--col) + var(--s4)) minmax(0, 1fr) calc(var(--col) - var(--s4)); gap: var(--s2); }
     .xy { width: 100%; height: auto; aspect-ratio: 1; }
+    .arr { overflow-x: auto; }
   }
 </style>
 </head>
@@ -241,6 +256,38 @@
     </section>
   </div>
 
+  <!-- 곡 -->
+  <div class="page" id="p-song">
+    <section class="mod grow">
+      <div class="mod-hd"><span class="lbl" data-i18n="sg.arrange"></span><span class="lbl lbl-3 hide-m" data-i18n="sg.hint"></span></div>
+      <div class="mod-body"><div class="arr" id="arr"></div><div class="t3" id="songEmpty" data-i18n="sg.empty"></div></div>
+      <div class="mod-foot encs" style="grid-auto-columns:auto;column-gap:var(--s8);justify-content:start" id="songRo"></div>
+    </section>
+    <section class="mod c4">
+      <div class="mod-hd"><span class="lbl" data-i18n="sg.scene"></span><span class="val-em" id="sceneName"></span></div>
+      <div class="mod-body">
+        <span class="t2" id="sceneSum"></span>
+        <div style="display:flex;align-items:center;gap:var(--s2)"><span class="lbl" data-i18n="sg.next"></span>
+          <span class="seg" id="nextType"><button data-next="bars" data-i18n="sg.t.bars"></button><button data-next="tips" data-i18n="sg.t.tips"></button><button data-next="loops" data-i18n="sg.t.loops"></button><button data-next="fruit" data-i18n="sg.t.fruit"></button></span></div>
+        <div class="row-btns"><button class="btn" id="sceneLoad" data-i18n="sg.load"></button><button class="btn" id="sceneUpdate" data-i18n="sg.update"></button><button class="btn" id="sceneLeft">◂</button><button class="btn" id="sceneRight">▸</button><button class="btn" id="sceneDel" data-i18n="sg.delete"></button></div>
+      </div>
+      <div class="mod-foot encs">
+        <div class="enc ro"><output class="v"></output><span class="lbl" id="nextLbl"></span><input type="range" class="hidden" id="nextN" min="1" max="64" step="1" value="16"></div>
+        <div class="enc ro" data-i18n-title="sg.max.t"><output class="v"></output><span class="lbl" data-i18n="sg.max"></span><input type="range" class="hidden" id="nextMax" min="4" max="128" step="4" value="64"></div>
+      </div>
+    </section>
+    <section class="mod c3">
+      <div class="mod-hd"><span class="lbl" data-i18n="sg.transport"></span></div>
+      <div class="mod-body">
+        <span class="seg fill" id="songMode"><button data-smode="stop">■</button><button data-smode="song">▶ <span data-i18n="sg.play"></span></button><button data-smode="scene">⟲ <span data-i18n="sg.loop"></span></button></span>
+        <button class="btn" id="capture" data-i18n="sg.capture"></button>
+      </div>
+      <div class="mod-foot encs">
+        <div class="enc ro"><output class="v"></output><span class="lbl">BPM</span><input type="range" class="hidden" id="songBpm" min="40" max="200" step="1" value="88"></div>
+      </div>
+    </section>
+  </div>
+
   <!-- 시뮬레이션 -->
   <div class="page" id="p-sim">
     <section class="mod c3">
@@ -298,13 +345,15 @@
   <div class="tab" data-p="chord" data-i18n-title="panel.t"><span class="lbl" data-i18n="page.chord"></span><span class="val" id="dkChord"></span></div>
   <div class="tab" data-p="sound" data-i18n-title="panel.t"><span class="lbl" data-i18n="page.sound"></span><span class="val" id="dkStyle"></span><span class="meter" style="width:var(--s8)"><b id="dkVol"></b></span></div>
   <div class="tab" data-p="mixer" data-i18n-title="panel.t"><span class="lbl" data-i18n="page.mixer"></span><span class="val" id="dkVoices"></span></div>
+  <div class="tab" data-p="song" data-i18n-title="panel.t"><span class="lbl" data-i18n="page.song"></span><span class="val" id="dkSong"></span></div>
   <div class="tab" data-p="sim" data-i18n-title="panel.t"><span class="lbl" data-i18n="page.sim"></span><span class="val" id="dkSpeed"></span></div>
   <div class="stats" id="dkStats"></div>
 </nav>
 
-<script src="src/i18n.js?v=21"></script>
+<script src="src/i18n.js?v=22"></script>
 <script src="src/mycelium.js?v=13"></script>
 <script src="src/sound.js?v=25"></script>
-<script src="src/main.js?v=38"></script>
+<script src="src/song.js?v=1"></script>
+<script src="src/main.js?v=40"></script>
 </body>
 </html>
