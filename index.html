@@ -123,6 +123,10 @@
   .prog { display: flex; gap: var(--s1); }
   .prog span { flex: 1; height: var(--u); display: flex; align-items: center; justify-content: center; border: var(--stroke) solid var(--line-ctl); border-radius: var(--r); color: var(--text-2); white-space: nowrap; }
   .prog span.is-sel { background: var(--sel-bg); color: var(--sel-fg); border-color: var(--sel-bg); }
+  .prog span:has(b) { flex-direction: column; height: auto; padding-block: var(--s1); min-width: 0; }
+  .prog span b { font-weight: inherit; font-size: var(--t-s); letter-spacing: var(--t-s-track); color: var(--text-3); }
+  .prog span.is-sel b { color: inherit; }
+  .ring .now { fill: var(--live); pointer-events: none; }
   /* 공간 XY: 가로 = 에코, 세로 = 잔향 */
   .xy { position: relative; width: calc(var(--u) * 7); height: calc(var(--u) * 7); cursor: crosshair; touch-action: none;
     background-image: linear-gradient(var(--fill) 1px, transparent 1px), linear-gradient(90deg, var(--fill) 1px, transparent 1px);
@@ -386,7 +390,7 @@
   <div class="stats" id="dkStats"></div>
 </nav>
 
-<script src="src/i18n.js?v=24"></script>
+<script src="src/i18n.js?v=25"></script>
 <script src="src/mycelium.js?v=13"></script>
 <script src="src/sound.js?v=27"></script>
 <!-- 소리 스타일: 파일 하나에 하나. 이 순서가 믹서 손잡이의 왼쪽 → 오른쪽 (이웃끼리 섞인다) -->
@@ -399,6 +403,6 @@
 <script src="src/styles/sunra.js?v=2"></script>
 <script src="src/song.js?v=2"></script>
 <script src="src/patch.js?v=1"></script>
-<script src="src/main.js?v=42"></script>
+<script src="src/main.js?v=44"></script>
 </body>
 </html>

@@ -685,8 +685,26 @@ function renderScale() { pick('[data-scale]', (b) => b.dataset.scale === sound.s
 // 근음은 5도권 링에서, 종류는 목록에서. 무엇을 누르든 '음계' 모드였다면 '고정'이 된다. 고른 값은 브라우저에 기억
 const FIFTHS = [0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5];
 const PCN = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
-const DEG = { 0: 'R', 2: '2', 3: '♭3', 4: '3', 5: '4', 6: '♭5', 7: '5', 8: '♯5', 9: '6', 10: '♭7', 11: '7', 14: '9', 15: '♯9' };
-const chordName = ([r, q]) => `${PCN[r]} ${q}`;
+const DEG = { 0: 'R', 2: '2', 3: '♭3', 4: '3', 5: '4', 6: '♭5', 7: '5', 8: '♯5', 9: '6', 10: '♭7', 11: '7', 14: '9', 15: '♭10' };
+// 화음 구성음의 철자: 근음 글자에서 도수만큼 글자를 세고, 반음 차이를 ♯ · ♭으로 (F♯ min7 = F♯ A C♯ E, D♭이 아니라 C♯).
+// 반음 → 글자 몇 칸 위인지 (2 · 9도 = 1칸, 3도 = 2칸, 4도 = 3칸, 5도 = 4칸, 6도 = 5칸, 7도 = 6칸; 사도 화음의 15는 ♭10 = 3도 자리)
+const STEPS = { 0: 0, 2: 1, 3: 2, 4: 2, 5: 3, 6: 4, 7: 4, 8: 4, 9: 5, 10: 6, 11: 6, 14: 1, 15: 2 };
+const LETTERS = 'CDEFGAB', NATURAL = [0, 2, 4, 5, 7, 9, 11], ACC = { '-2': '𝄫', '-1': '♭', 0: '', 1: '♯', 2: '𝄪' };
+const ALT = { 1: 'C♯', 3: 'D♯', 6: 'G♭', 8: 'G♯', 10: 'A♯' };
+const spellAs = (name, r, i) => {
+  const L = (LETTERS.indexOf(name[0]) + STEPS[i]) % 7;
+  return LETTERS[L] + ACC[(((r + i) % 12) - NATURAL[L] + 18) % 12 - 6];
+};
+// 근음 이름: 단 · 감화음의 C♯ · G♯는 샵이 먼저 (C♯ min, G♯ dim). 구성음에 겹올림 · 겹내림이 생기면 다른 이름으로
+// (E♭ dim = E♭ G♭ B𝄫 → D♯ F♯ A, F♯ aug = F♯ A♯ C𝄪 → G♭ B♭ D)
+function rootName(r, q) {
+  const names = /^(min|dim)/.test(q) && (r === 1 || r === 8) ? [ALT[r], PCN[r]] : [PCN[r], ALT[r]];
+  return names.find((n) => n && CHORD[q].every((i) => !/𝄫|𝄪/.test(spellAs(n, r, i)))) || names[0];
+}
+const spell = (r, q, i) => spellAs(rootName(r, q), r, i);
+const chordName = ([r, q]) => `${rootName(r, q)} ${q}`;
+// 진행표의 자리: 장조 계열 I – vi – IV – V7, 단조 계열 i – VI – iv – V7 (sound.js의 progression과 같은 순서)
+const numerals = (q) => (isMinor(q) ? ['i', 'VI', 'iv', 'V7'] : ['I', 'vi', 'IV', 'V7']);
 function setChord(c) {
   sound.setChord(c);
   try { localStorage.setItem('fungi.chord', JSON.stringify(sound.chord)); } catch (e) { /* 이번 방문 동안만 */ }
@@ -694,6 +712,7 @@ function setChord(c) {
 }
 function drawRing() {
   const { root, qual, mode } = sound.chord, k = FIFTHS.indexOf(root), ri = 52, ro = 100;
+  const now = sound.current[0], kn = FIFTHS.indexOf(now), an = (kn / 12) * 2 * Math.PI - Math.PI / 2;
   const pt = (r, a) => `${(Math.cos(a) * r).toFixed(2)} ${(Math.sin(a) * r).toFixed(2)}`;
   $('ring').classList.toggle('is-off', mode === 'scale');
   $('ring').innerHTML = FIFTHS.map((pc, i) => {
@@ -703,7 +722,10 @@ function drawRing() {
       `<text x="${(Math.cos((a0 + a1) / 2) * 76).toFixed(1)}" y="${(Math.sin((a0 + a1) / 2) * 76 + 4).toFixed(1)}" text-anchor="middle">${PCN[pc]}</text></g>`;
   }).join('') + (mode === 'scale'
     ? `<text class="c2" x="0" y="4" text-anchor="middle">${t('ch.m.scale').toUpperCase()}</text>`
-    : `<text class="c1" x="0" y="2" text-anchor="middle">${PCN[root]}</text><text class="c2" x="0" y="20" text-anchor="middle">${qual.toUpperCase()}</text>`);
+    // 가운데는 고른 화음 = 진행의 출발점(I). 진행 중이면 지금 울리는 근음 자리에 점을 찍는다
+    : (mode === 'network' ? `<text class="c2" x="0" y="-16" text-anchor="middle">${numerals(qual)[0]} · ${t('ch.home').toUpperCase()}</text>` : '') +
+      `<text class="c1" x="0" y="4" text-anchor="middle">${rootName(root, qual)}</text><text class="c2" x="0" y="22" text-anchor="middle">${qual.toUpperCase()}</text>` +
+      (mode === 'network' && now !== root ? `<circle class="now" cx="${(Math.cos(an) * 60).toFixed(1)}" cy="${(Math.sin(an) * 60).toFixed(1)}" r="3"/>` : ''));
 }
 $('ring').addEventListener('click', (e) => {
   const g = e.target.closest('.s');
@@ -735,7 +757,7 @@ function drawChordKb() {
     x++;
   }
   $('chordKb').innerHTML = h;
-  $('chordTones').innerHTML = on ? CHORD[q].map((i) => `<span class="ro"><span class="v">${PCN[(r + i) % 12]}</span><span class="lbl">${DEG[i] ?? i}</span></span>`).join('') : '';
+  $('chordTones').innerHTML = on ? CHORD[q].map((i) => `<span class="ro"><span class="v">${spell(r, q, i)}</span><span class="lbl">${DEG[i] ?? i}</span></span>`).join('') : '';
 }
 let chordShown = '';
 function renderChord() {
@@ -744,10 +766,12 @@ function renderChord() {
   pick('[data-qual]', (b) => mode !== 'scale' && b.dataset.qual === qual);
   pick('[data-mode]', (b) => b.dataset.mode === mode);
   $('chordHint').textContent = t(`ch.hint.${mode}`);
-  $('chordNow').textContent = sound.chordOn ? chordName(cur) : '';
+  $('chordNow').textContent = mode === 'network' ? `${(sound.prog % 4) + 1} / 4` : '';
   $('dkChord').textContent = sound.chordOn ? chordName(cur) : t('ch.m.scale');
+  const num = numerals(qual);
   $('prog').innerHTML = mode === 'network'
-    ? sound.progressionList.map((c, i) => `<span class="${i === sound.prog % 4 ? 'is-sel' : ''}">${chordName(c)}</span>`).join('') : '';
+    ? sound.progressionList.map((c, i) => `<span class="${i === sound.prog % 4 ? 'is-sel' : ''}"><b>${num[i]}</b>${chordName(c)}</span>`).join('') : '';
+  $('prog').parentElement.classList.toggle('hidden', mode !== 'network');
   drawChordKb();
   chordShown = `${mode}${sound.prog}${cur}`;
 }
