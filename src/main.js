@@ -414,6 +414,25 @@ canvas.addEventListener('pointerup', endDrag);
 canvas.addEventListener('pointercancel', () => { drag = null; canvas.style.cursor = ''; });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 // 휠: 마우스 휠 · 트랙패드 핀치(ctrlKey)는 커서 기준 확대/축소, 트랙패드 두 손가락 스크롤은 화면 이동
+// 가로로 넘친 줄(상단 줄 · 독 · 판)은 세로 휠로도 옆으로 민다 (가로 휠이 없는 마우스용).
+// 손잡이 · 막대가 휠을 먼저 썼거나, 안쪽에 세로로 스크롤되는 곳이 있으면 그쪽이 먼저
+for (const el of document.querySelectorAll('.top .row, .dock, .panel > .page')) {
+  const edges = () => {
+    el.classList.toggle('is-more-l', el.scrollLeft > 1);
+    el.classList.toggle('is-more-r', el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+  };
+  el.addEventListener('scroll', edges, { passive: true });
+  new ResizeObserver(edges).observe(el);
+  el.addEventListener('wheel', (e) => {
+    if (e.defaultPrevented || el.scrollWidth <= el.clientWidth + 1 || Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return;
+    for (let n = e.target; n && n !== el; n = n.parentElement) {
+      if (n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(n).overflowY)) return;
+    }
+    el.scrollLeft += e.deltaY;
+    e.preventDefault();
+  }, { passive: false });
+}
+
 canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
   const r = canvas.getBoundingClientRect(), sx = e.clientX - r.left, sy = e.clientY - r.top;

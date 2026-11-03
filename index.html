@@ -11,7 +11,16 @@
 <style>
   /* 배치와 이 앱에만 있는 부품. 색 · 크기는 모두 src/ds.css 토큰 (mockups/lint-ds.sh로 검사) */
   :root { color-scheme: dark; }
-  html, body { height: 100%; overflow: hidden; }
+  html, body { height: 100%; overflow: hidden; overflow: clip; }  /* clip: 넘친 줄 때문에 페이지 전체가 옆으로 밀리지 않게 */
+  /* 화면보다 넓어지는 줄(상단 줄 · 독 · 열린 판)은 그 줄만 가로로 넘긴다 — 터치는 밀어서, 트랙패드는 가로로, 마우스는 휠로 (main.js) */
+  .top .row, .dock, .panel > .page { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+  .top .row::-webkit-scrollbar, .dock::-webkit-scrollbar, .panel > .page::-webkit-scrollbar { display: none; }
+  .dock > * { flex: none; }
+  /* 넘친 쪽 가장자리를 흐리게: 옆에 더 있다는 표시 (main.js가 is-more-l · is-more-r를 붙인다) */
+  .is-more-r { mask-image: linear-gradient(to right, black calc(100% - var(--s8)), transparent); }
+  .is-more-l { mask-image: linear-gradient(to left, black calc(100% - var(--s8)), transparent); }
+  .is-more-l.is-more-r { mask-image: linear-gradient(to right, transparent, black var(--s8), black calc(100% - var(--s8)), transparent); }
+  .mod.grow { min-width: calc(var(--col) * 4 + var(--gut) * 3 + var(--pad) * 2); }
   body { display: flex; flex-direction: column; user-select: none; }
   .hidden { display: none !important; }
 
@@ -403,6 +412,6 @@
 <script src="src/styles/sunra.js?v=2"></script>
 <script src="src/song.js?v=2"></script>
 <script src="src/patch.js?v=1"></script>
-<script src="src/main.js?v=44"></script>
+<script src="src/main.js?v=46"></script>
 </body>
 </html>
