@@ -89,8 +89,10 @@ function toggleFit() {
 
 function reset() {
   if (stage.clientWidth < 50 || stage.clientHeight < 50) return;  // 창이 잠깐 0 크기면 (숨은 창 등) 지금 월드를 그대로 둔다
+  // 월드는 판이 닫혔을 때의 무대 크기로 만든다. 판이 열린 채로 만들면 납작한 월드가 생겨, 판을 닫으면 위아래가 빈다
+  const panel = $('panel');
   W = stage.clientWidth;
-  H = stage.clientHeight;
+  H = stage.clientHeight + (panel.classList.contains('is-open') ? panel.offsetHeight : 0);
   Object.assign(view, { zoom: 1, cx: W / 2, cy: H / 2 });
   fitCanvas();
   sim = new Mycelium(W, H, readParams());
