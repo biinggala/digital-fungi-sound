@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="src/ds.css?v=3">
+<link rel="stylesheet" href="src/ds.css?v=4">
 <style>
   /* 배치와 이 앱에만 있는 부품. 색 · 크기는 모두 src/ds.css 토큰 (mockups/lint-ds.sh로 검사) */
   :root { color-scheme: dark; }
@@ -220,6 +220,7 @@
 </main>
 
 <div class="panel" id="panel">
+  <button class="sheet-grip" id="panelGrip" data-i18n-title="panel.close"><i></i></button>
 
   <!-- 화음 -->
   <div class="page" id="p-chord">
@@ -409,7 +410,7 @@
   <div class="stats" id="dkStats"></div>
 </nav>
 
-<script src="src/i18n.js?v=25"></script>
+<script src="src/i18n.js?v=26"></script>
 <script src="src/mycelium.js?v=13"></script>
 <script src="src/sound.js?v=31"></script>
 <!-- 소리 스타일: 파일 하나에 하나. 이 순서가 믹서 손잡이의 왼쪽 → 오른쪽 (이웃끼리 섞인다) -->
@@ -422,6 +423,6 @@
 <script src="src/styles/sunra.js?v=2"></script>
 <script src="src/song.js?v=2"></script>
 <script src="src/patch.js?v=1"></script>
-<script src="src/main.js?v=46"></script>
+<script src="src/main.js?v=47"></script>
 </body>
 </html>

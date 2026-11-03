@@ -153,6 +153,10 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
    판은 12u (288px). 모듈 = 머리(1u) + 몸 + 발(엔코더 줄은 늘 바닥에 붙인다) */
 .panel { height: calc(var(--u) * 12); background: var(--bg-panel); border-top: var(--stroke) solid var(--line); display: flex; }
 .panel:not(.is-open) { display: none; }   /* 판은 열 때만 */
+.panel { flex-direction: column; }
+.panel > .page { flex: 1; min-height: 0; }
+/* 바닥 시트 손잡이: 폰에서만. 누르거나 아래로 끌면 판을 닫는다 */
+.sheet-grip { display: none; }
 .mod { display: flex; flex-direction: column; padding: var(--s3) var(--pad) var(--pad); border-right: var(--stroke) solid var(--line); min-width: 0; flex: none; }
 .mod:last-child { border-right: 0; }
 .mod.grow { flex: 1; }
@@ -205,6 +209,9 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
   .top .row { gap: var(--s2); }
 
   .panel { height: 50vh; }
+  .sheet-grip { display: flex; flex: none; align-items: center; justify-content: center; gap: var(--s2); height: var(--s8);
+    border-bottom: var(--stroke) solid var(--line); touch-action: none; color: var(--text-3); }
+  .sheet-grip i { display: block; width: var(--s8); height: var(--s1); border-radius: var(--r); background: var(--line-ctl); }
   .panel > .page { flex-direction: column; overflow-y: auto; overscroll-behavior: contain; }
   .mod, .mod.c2, .mod.c3, .mod.c4, .mod.c5, .mod.c6, .mod.grow { width: 100%; flex: none; border-right: 0; border-bottom: var(--stroke) solid var(--line); }
   .mod:empty { display: none; }

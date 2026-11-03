@@ -36,6 +36,7 @@ const I18N = {
       `대치 ${s.clashes}   스파이크 ${s.spikes}   먹이 발견 ${s.foodSignals}   양분 ${s.pool.toFixed(1)}   HGU ${s.hguMm.toFixed(1)} mm   ` +
       `매트 ${Math.round(s.matCover * 100)}%   버섯 ${s.fruits}/${s.fruitsTotal}` + (s.sporeColonies ? `   포자 군체 ${s.sporeColonies}` : '') + (full ? '   용량 가득' : ''),
 
+    'panel.close': '판 닫기 (아래로 끌거나 누르기)',
     'page.chord': '화음', 'ch.root': '근음', 'ch.fifths': '5도권', 'ch.quality': '종류', 'ch.source': '화음은', 'ch.now': '지금', 'ch.home': '출발', 'ch.space': '공간',
     'ch.m.scale': '음계', 'ch.m.scale.d': '화음 없음', 'ch.m.hold': '고정', 'ch.m.hold.d': '직접', 'ch.m.network': '균사체', 'ch.m.network.d': '진행',
     'ch.hint.scale': '화음 없이 고른 음계로 연주한다 (예전 소리). 근음이나 종류를 누르면 고정 화음이 된다',
@@ -116,6 +117,7 @@ const I18N = {
       `clashes ${s.clashes}   spikes ${s.spikes}   food found ${s.foodSignals}   stored ${s.pool.toFixed(1)}   HGU ${s.hguMm.toFixed(1)} mm   ` +
       `mat ${Math.round(s.matCover * 100)}%   mushrooms ${s.fruits}/${s.fruitsTotal}` + (s.sporeColonies ? `   spore colonies ${s.sporeColonies}` : '') + (full ? '   full' : ''),
 
+    'panel.close': 'Close panel (tap or drag down)',
     'page.chord': 'Chord', 'ch.root': 'Root', 'ch.fifths': 'circle of fifths', 'ch.quality': 'Quality', 'ch.source': 'Chord from', 'ch.now': 'Now', 'ch.home': 'home', 'ch.space': 'Space',
     'ch.m.scale': 'Scale', 'ch.m.scale.d': 'no chord', 'ch.m.hold': 'Hold', 'ch.m.hold.d': 'manual', 'ch.m.network': 'Network', 'ch.m.network.d': 'progress',
     'ch.hint.scale': 'Plays the chosen scale with no chord (the original sound). Pick a root or quality to hold a chord',

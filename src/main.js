@@ -585,6 +585,25 @@ function openPanel(p) {
 }
 document.querySelectorAll('.dock .tab').forEach((x) => x.addEventListener('click', () => openPanel(panelPage === x.dataset.p ? null : x.dataset.p)));
 const cyclePanel = () => openPanel(PAGES[PAGES.indexOf(panelPage) + 1] || null);
+// 폰의 바닥 시트 손잡이: 누르면 닫고, 아래로 끌면 판이 따라 내려가다 충분히 내리면 닫는다
+{
+  const grip = $('panelGrip'), panel = $('panel');
+  let y0 = null, dy = 0;
+  grip.addEventListener('pointerdown', (e) => { capture(grip, e); y0 = e.clientY; dy = 0; });
+  grip.addEventListener('pointermove', (e) => {
+    if (y0 === null) return;
+    dy = Math.max(0, e.clientY - y0);
+    panel.style.transform = `translateY(${dy}px)`;
+  });
+  const end = () => {
+    if (y0 === null) return;
+    y0 = null;
+    panel.style.transform = '';
+    if (dy < 8 || dy > 48) openPanel(null);   // 거의 안 움직였으면 누른 것, 많이 내렸으면 끈 것
+  };
+  grip.addEventListener('pointerup', end);
+  grip.addEventListener('pointercancel', () => { y0 = null; panel.style.transform = ''; });
+}
 try { const p = localStorage.getItem('fungi.panel'); openPanel(PAGES.includes(p) ? p : null); } catch (e) { openPanel(null); }
 
 function toggleHelp() { $('help').hidden = !$('help').hidden; $('helpBtn').classList.toggle('is-sel', !$('help').hidden); }
