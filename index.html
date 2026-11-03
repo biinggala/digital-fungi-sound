@@ -14,7 +14,11 @@
   html, body { height: 100%; overflow: hidden; overflow: clip; }  /* clip: 넘친 줄 때문에 페이지 전체가 옆으로 밀리지 않게 */
   /* 화면보다 넓어지는 줄(상단 줄 · 독 · 열린 판)은 그 줄만 가로로 넘긴다 — 터치는 밀어서, 트랙패드는 가로로, 마우스는 휠로 (main.js) */
   .top .row, .dock, .panel > .page { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
-  .top .row::-webkit-scrollbar, .dock::-webkit-scrollbar, .panel > .page::-webkit-scrollbar { display: none; }
+  .top .row::-webkit-scrollbar, .dock::-webkit-scrollbar { display: none; }
+  /* 판은 세로로도 넘칠 수 있으니 가는 스크롤바는 보인다 (가로 막대만 숨김) */
+  .panel > .page { scrollbar-width: thin; scrollbar-color: var(--line-ctl) transparent; }
+  .panel > .page::-webkit-scrollbar { width: var(--s1); height: 0; }
+  .panel > .page::-webkit-scrollbar-thumb { background: var(--line-ctl); }
   .dock > * { flex: none; }
   /* 넘친 쪽 가장자리를 흐리게: 옆에 더 있다는 표시 (main.js가 is-more-l · is-more-r를 붙인다) */
   .is-more-r { mask-image: linear-gradient(to right, black calc(100% - var(--s8)), transparent); }
@@ -72,6 +76,12 @@
   .chan .name { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .chan .name.is-loud { color: var(--text-1); }
   .chan output { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* 휴대폰과 넓은 화면 사이: 한 줄에 열 채널이 다 서면 판(12u)을 넘쳐 독을 가리므로, 섞임 글자를 빼고 두 단으로 */
+  @media (max-width: 900px) {   /* 600 px 이하는 아래 휴대폰 규칙이 다시 한 단으로 덮는다 */
+    #mixer { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--s6); }
+    .chan output { display: none; }
+    .chan { grid-template-columns: calc(var(--col) + var(--s4)) minmax(0, 1fr) calc(var(--col) - var(--s4)); gap: var(--s2); }
+  }
   /* 스타일 띠: 칸 6개 (스타일마다 하나). 윗선이 그 스타일의 범주색, 바탕은 섞인 정도만큼 밝다. 손잡이 = 흰 세로선 */
   .track { position: relative; display: grid; gap: var(--stroke-2); height: var(--s4); cursor: ew-resize; touch-action: none; }
   .track i { background: var(--fill); border-top: var(--stroke-2) solid; position: relative; }
