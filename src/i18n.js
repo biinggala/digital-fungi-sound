@@ -46,9 +46,8 @@ const I18N = {
       (s.bpm.length ? `   ♩${s.bpm.join(' ♩')}` : '') + (s.reentry ? `   재진입 ♥${s.reentry}` : ''),
     'ch.grow': '성장', 'ch.food': '먹이 발견', 'ch.start': '파동 시작', 'ch.tok': '스파이크', 'ch.heart': '재진입 ♥',
     'ch.probe': '기록 전극', 'ch.drone': '드론', 'ch.pad': '화음·파면', 'ch.space': '공간', 'ch.fruit': '버섯',
-    'style.lab': '연구실', 'style.eno': 'Eno 앰비언트', 'style.moss': 'Moss Garden (David Bowie)', 'style.greenhouse': 'Green-House', 'style.aphex': 'Aphex Twin', 'style.sunra': 'Sun Ra · Cosmic Tones (1963)',
     'scale.minorPenta': '단조 5음', 'scale.majorPenta': '장조 5음', 'scale.lydian': '리디안', 'scale.dorian': '도리안',
-    'scale.wholeTone': '온음', 'scale.slendro': '슬렌드로', 'scale.inScale': '인 음계', 'scale.chromatic': '반음계',
+    'scale.wholeTone': '온음', 'scale.slendro': '슬렌드로', 'scale.inScale': '인 음계', 'scale.aeolian': '자연 단음계', 'scale.chromatic': '반음계',
 
     'help.legend.colony': () => '굵기 = 전도도 D (많이 쓴 길일수록 굵어짐) · 노란 선 = 융합 간선 (고리를 닫는 우회로) · ' +
       '균사가 밝아지며 지나가는 띠 = 전기 신호, 그 뒤 잠깐 어두워짐 = 불응기 · ' +
@@ -106,9 +105,8 @@ const I18N = {
       (s.bpm.length ? `   ♩${s.bpm.join(' ♩')}` : '') + (s.reentry ? `   reentry ♥${s.reentry}` : ''),
     'ch.grow': 'Growth', 'ch.food': 'Food found', 'ch.start': 'Wave start', 'ch.tok': 'Spikes', 'ch.heart': 'Reentry ♥',
     'ch.probe': 'Electrode', 'ch.drone': 'Drone', 'ch.pad': 'Pad·front', 'ch.space': 'Space', 'ch.fruit': 'Mushroom',
-    'style.lab': 'Lab', 'style.eno': 'Eno ambient', 'style.moss': 'Moss Garden (David Bowie)', 'style.greenhouse': 'Green-House', 'style.aphex': 'Aphex Twin', 'style.sunra': 'Sun Ra · Cosmic Tones (1963)',
     'scale.minorPenta': 'Minor penta', 'scale.majorPenta': 'Major penta', 'scale.lydian': 'Lydian', 'scale.dorian': 'Dorian',
-    'scale.wholeTone': 'Whole tone', 'scale.slendro': 'Slendro', 'scale.inScale': 'In (miyako-bushi)', 'scale.chromatic': 'Chromatic',
+    'scale.wholeTone': 'Whole tone', 'scale.slendro': 'Slendro', 'scale.inScale': 'In (miyako-bushi)', 'scale.aeolian': 'Natural minor', 'scale.chromatic': 'Chromatic',
 
     'help.legend.colony': () => 'width = conductance D (well-used paths thicken) · yellow = fusion edges (loop-closing shortcuts) · ' +
       'a band of light running along the hyphae = electrical signal, the brief dimming behind it = refractory period · ' +
@@ -129,6 +127,8 @@ let LANG = 'en';  // 기본은 영어. 한 번 한국어로 바꾸면 그 선택
 try { if (localStorage.getItem('fungi.lang') === 'ko') LANG = 'ko'; } catch (e) { /* 저장소를 못 쓰면 기본값 */ }
 
 function t(key, ...args) {
+  // 스타일 이름은 각 스타일 파일(src/styles/*.js)의 title에 있다
+  if (key.startsWith('style.') && typeof STYLES !== 'undefined' && STYLES[key.slice(6)]) return STYLES[key.slice(6)].title[LANG];
   const v = I18N[LANG][key] ?? I18N.ko[key] ?? key;
   return typeof v === 'function' ? v(...args) : v;
 }

@@ -22,7 +22,6 @@ const BUCKETS = [
   { width: 2.0, alpha: 0.9 },
 ];
 const FLOW_COLORS = ['36, 95%, 62%', '192, 85%, 66%'];  // 공급(흡수) / 소비(성장)
-const STYLE_COLOR = { lab: '--lab', eno: '--eno', moss: '--moss', greenhouse: '--green', aphex: '--aphex', sunra: '--sunra' };
 const scope = $('scope');
 const sctx = scope.getContext('2d');
 const sound = new MyceliumSound();
@@ -537,7 +536,7 @@ for (const k of STYLE_ORDER) {
   b.className = 'opt';
   b.dataset.preset = k;
   b.dataset.i18nTitle = `style.${k}`;
-  b.innerHTML = `<span class="sw" style="background:var(${STYLE_COLOR[k]})"></span>${STYLES[k].short}`;
+  b.innerHTML = `<span class="sw" style="background:${STYLES[k].color}"></span>${STYLES[k].short}`;
   b.addEventListener('click', () => { sound.preset(k); showSoundControls(); });
   $('presets').append(b);
 }
@@ -553,7 +552,8 @@ function renderPresets() {
 }
 
 // 믹서: 채널마다 스타일 띠 (블록이 스타일 색, 손잡이 근처일수록 밝다) + 음량 막대
-const TRACK_BLOCKS = 6 * STYLE_ORDER.length;
+// 띠 전체 블록 수는 스타일 수와 상관없이 36개 안팎 (스타일이 늘면 스타일당 블록이 줄어든다)
+const PER_STYLE = Math.max(2, Math.round(36 / STYLE_ORDER.length)), TRACK_BLOCKS = PER_STYLE * STYLE_ORDER.length;
 const tracks = [];
 const levelers = {};  // 채널 → 지금 소리 크기를 그 줄에 비추는 함수
 for (const ch of CHANNELS) {
@@ -564,7 +564,7 @@ for (const ch of CHANNELS) {
   $('mixer').append(row);
   const track = row.querySelector('.track'), out = row.querySelector('output'), last = STYLE_ORDER.length - 1;
   track.innerHTML = Array.from({ length: TRACK_BLOCKS }, (_, i) =>
-    `<i style="background:var(${STYLE_COLOR[STYLE_ORDER[Math.floor(i / 6)]]})"></i>`).join('') + '<b></b>';
+    `<i style="background:${STYLES[STYLE_ORDER[Math.floor(i / PER_STYLE)]].color}"></i>`).join('') + '<b></b>';
   const blocks = [...track.querySelectorAll('i')], mark = track.querySelector('b'), lbl = row.querySelector('.lbl');
   const base = new Float32Array(TRACK_BLOCKS), near = new Float32Array(TRACK_BLOCKS);
   let shown = 0, drawn = -1;

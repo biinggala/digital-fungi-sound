@@ -16,6 +16,7 @@ const SCALES = {
   wholeTone: { name: '온음 음계', steps: [0, 2, 4, 6, 8, 10] },
   slendro: { name: '슬렌드로 (5평균율)', steps: [0, 2.4, 4.8, 7.2, 9.6] },
   inScale: { name: '인 음계 (미야코부시)', steps: [0, 1, 5, 7, 8] },
+  aeolian: { name: '자연 단음계', steps: [0, 2, 3, 5, 7, 8, 10] },
   chromatic: { name: '반음계', steps: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
 };
 
@@ -23,78 +24,37 @@ const SCALES = {
 // grid: 있으면 이 스타일로 연주되는 사건을 그 박자 격자에 맞춰 낸다 (스타일마다 따로 도는 시계 → 섞으면 폴리리듬).
 //   성장음은 격자 칸마다 확률적으로 친다. bpm 'flow'는 양분 흐름으로 빨라진다.
 // grain: 성장음 밀도 = max · (1 − e^(−팁 수/tips)). 격자 스타일은 칸이 적으니 팁 몇십 개로도 꽉 차게.
-// 프리셋을 누르면 scale · tonic · reverb · echo도 이 값으로 바뀐다.
-const STYLES = {
-  lab: {
-    name: '연구실', short: 'Lab', scale: 'minorPenta', tonic: 62, room: 'short', reverb: 0.55, echo: 0, echoTimes: [0.4, 0.6],
-    drone: { level: 1, saw: 1, sub: 1, bright: 1, wobble: 0 },
-    pad: { level: 1, saw: 0, bright: 1, fade: 2, swell: 0, wobble: 0, wobbleRate: 0.2 },
-    front: { noise: 1, hum: 1, band: [300, 3100], crush: 0 },
-    grid: null, grain: { max: 50, tips: 250, speed: true },
-    gap: { food: 0.15, tok: 0 }, humanize: 0, stutter: 0,
-    reg: { fruit: 0, food: 0, start: 0, probe: 12, tok: -12, grain: 0, heart: -24 },
-    inst: { fruit: 'bell', food: 'bell', start: 'thump', probe: 'pluck', tok: 'tok', heart: 'kick', plop: 'plop', grain: 'crackle' },
-  },
-  // Music for Airports / Discreet Music: 드문 음, 부드러운 음색, 서로 나누어떨어지지 않는 긴 테이프 에코, 긴 잔향
-  eno: {
-    name: 'Eno 앰비언트', short: 'Eno', scale: 'majorPenta', tonic: 65, room: 'long', reverb: 0.8, echo: 0.6, echoTimes: [3.1, 4.3],
-    drone: { level: 0.55, saw: 0, sub: 0.4, bright: 0.45, wobble: 0 },
-    pad: { level: 1.4, saw: 0, bright: 0.45, fade: 6, swell: 1.5, wobble: 0, wobbleRate: 0.1 },
-    front: { noise: 0.12, hum: 0, band: [200, 900], crush: 0 },
-    grid: null, grain: { max: 0.7, tips: 250, speed: false },
-    gap: { food: 0.9, tok: 1.1 }, humanize: 0.25, stutter: 0,
-    reg: { fruit: -12, food: 0, start: -12, probe: 12, tok: -12, grain: 12, heart: -24 },
-    inst: { fruit: 'epiano', food: 'epiano', start: 'epiano', probe: 'glass', tok: 'epiano', heart: 'bloom', plop: 'glass', grain: 'glass' },
-  },
-  // David Bowie "Moss Garden" (Heroes, 1977, Eno와 함께): 코토 뜯는 소리와 가끔 밀어 올리는 음(오시데), 아주 느리게 부푸는 신스 패드, 일본 음계
-  moss: {
-    name: 'Moss Garden', short: 'Moss', scale: 'inScale', tonic: 62, room: 'long', reverb: 0.75, echo: 0.4, echoTimes: [1.7, 2.3],
-    drone: { level: 0.8, saw: 0.15, sub: 0.7, bright: 0.5, wobble: 3 },
-    pad: { level: 1.3, saw: 0.35, bright: 0.5, fade: 8, swell: 1, wobble: 4, wobbleRate: 0.07 },
-    front: { noise: 0.2, hum: 0.3, band: [150, 700], crush: 0 },
-    grid: null, grain: { max: 0.8, tips: 200, speed: false },
-    gap: { food: 0.7, tok: 0.8 }, humanize: 0.3, stutter: 0,
-    reg: { fruit: -12, food: 0, start: -12, probe: 12, tok: -12, grain: 0, heart: -24 },
-    inst: { fruit: 'koto', food: 'koto', start: 'koto', probe: 'koto', tok: 'koto', heart: 'bloom', plop: 'koto', grain: 'koto' },
-  },
-  // 식물 음악: 리디안, 칼림바 아르페지오(성장), 새소리(먹이 발견), 물방울, 따뜻한 코러스 패드, 느린 템포. 드론은 거의 없다
-  greenhouse: {
-    name: 'Green-House', short: 'Green', scale: 'lydian', tonic: 64, room: 'long', reverb: 0.6, echo: 0.35, echoTimes: [0.536, 0.714],
-    drone: { level: 0.25, saw: 0, sub: 0, bright: 0.7, wobble: 6 },
-    pad: { level: 1.1, saw: 0, bright: 0.8, fade: 3, swell: 0.6, wobble: 8, wobbleRate: 0.8 },
-    front: { noise: 0.45, hum: 0, band: [400, 1400], crush: 0 },
-    grid: { bpm: 84, div: 2 }, grain: { max: 0.85, tips: 40 },
-    gap: { food: 0.4, tok: 0.3 }, humanize: 0, stutter: 0,
-    reg: { fruit: 0, food: 12, start: -12, probe: 12, tok: 0, grain: 0, heart: -24 },
-    inst: { fruit: 'kalimba', food: 'chirp', start: 'marimba', probe: 'drip', tok: 'marimba', heart: 'softKick', plop: 'drip', grain: 'kalimba' },
-  },
-  // Selected Ambient Works의 흔들리는 테이프 패드 + drill'n'bass: 16분 격자, 하이햇(성장), 스네어 연타(스파이크), 애시드 베이스(먹이)
-  aphex: {
-    name: 'Aphex Twin', short: 'Aphex', scale: 'dorian', tonic: 62, room: 'short', reverb: 0.3, echo: 0.2, echoTimes: [0.33, 0.5],
-    drone: { level: 0.9, saw: 1.2, sub: 1, bright: 1.3, wobble: 22 },
-    pad: { level: 0.8, saw: 1, bright: 0.7, fade: 1.5, swell: 0, wobble: 22, wobbleRate: 0.31 },
-    front: { noise: 0.6, hum: 0, band: [800, 6000], crush: 1 },
-    grid: { bpm: 'flow', div: 4 }, grain: { max: 0.9, tips: 40 },
-    gap: { food: 0.12, tok: 0.06 }, humanize: 0, stutter: 0.15,
-    reg: { fruit: -12, food: -12, start: 0, probe: 12, tok: 0, grain: 0, heart: -24 },
-    inst: { fruit: 'acid', food: 'acid', start: 'kick909', probe: 'blip', tok: 'snare', heart: 'kick909', plop: 'blip', grain: 'hat' },
-  },
-  // Sun Ra "Adventure-Equation" (Cosmic Tones for Mental Therapy, 1963 녹음): 브루클린 Tip Top 클럽의 Hammond B-3, Clavioline(진공관 단음 건반),
-  // 타악기, Tommy Hunter의 리버브. 미니무그(1969~)보다 앞선 시기라 무그는 쓰지 않는다. 악기 소리는 모두 아날로그 녹음 버스(analog)를 지난다
-  sunra: {
-    name: 'Sun Ra', short: 'Ra', scale: 'chromatic', tonic: 62, room: 'long', reverb: 0.45, echo: 0.25, echoTimes: [0.19, 0.27],
-    analog: true,
-    drone: { level: 0.6, saw: 0.1, sub: 0.7, bright: 0.7, wobble: 14 },
-    pad: { level: 0.9, saw: 0.15, bright: 0.6, fade: 1.2, swell: 0.8, wobble: 16, wobbleRate: 6.7 },
-    front: { noise: 0.5, hum: 0.6, band: [300, 2500], crush: 0 },
-    grid: null, grain: { max: 6, tips: 150, speed: false },
-    gap: { food: 0.3, tok: 0.08 }, humanize: 0.4, stutter: 0,
-    reg: { fruit: -12, food: 0, start: -12, probe: 12, tok: 0, grain: 12, heart: -24 },
-    inst: { fruit: 'hammond', food: 'clavioline', start: 'hammond', probe: 'clavioline', tok: 'logdrum', heart: 'timpani', plop: 'smallBell', grain: 'smallBell' },
-  },
-};
-const STYLE_ORDER = ['lab', 'eno', 'moss', 'greenhouse', 'aphex', 'sunra'];  // 손잡이 왼쪽 → 오른쪽 (이웃끼리 섞인다)
-for (const [k, st] of Object.entries(STYLES)) st.key = k;
+//   mode는 음높이 고르는 법: 'noise'(무작위 고역) · 'scale'(음계 무작위, amp) · 'arp'(지금 화음 아르페지오, amp) · 'hat'(16분 강세) · 'offbeat'(뒷박 열린 햇)
+// motor: { every, hold } 있으면 파면이 지나가는 동안 격자 every칸마다 재진입 채널 악기를 친다 (hold초까지 이어서).
+// color · title { en, ko }: 믹서 띠 색과 화면 이름. 프리셋을 누르면 scale · tonic · reverb · echo도 이 값으로 바뀐다.
+// 스타일은 src/styles/*.js 파일 하나에 하나씩 defineStyle()로 등록된다 (index.html의 순서 = 손잡이 왼쪽 → 오른쪽, 이웃끼리 섞인다).
+// 스타일이 만든 악기는 이름으로 등록되어 다른 스타일도 빌려 쓸 수 있다
+const STYLES = {}, STYLE_ORDER = [], VOICES = {};
+const STYLE_FIELDS = ['name', 'short', 'color', 'title', 'scale', 'tonic', 'room', 'reverb', 'echo', 'echoTimes', 'drone', 'pad', 'front', 'grain', 'gap', 'reg', 'inst'];
+function defineStyle(key, def) {
+  const { instruments = {}, voices = {}, ...st } = def;
+  if (STYLES[key]) throw new Error(`style '${key}' is defined twice`);
+  st.key = key;
+  STYLES[key] = st;
+  STYLE_ORDER.push(key);
+  for (const [name, fn] of Object.entries(instruments)) {
+    if (VOICES[name]) throw new Error(`instrument '${name}' (style '${key}') is already defined`);
+    MyceliumSound.prototype[name] = fn;
+    VOICES[name] = { send: [0.3, 0.3], unpitched: false, len: 0.25, analog: false, ...voices[name] };
+  }
+}
+// 등록이 끝난 뒤 한 번: 빠진 값 · 없는 악기 · 없는 음계를 처음에 알려준다 (소리를 낼 때 조용히 깨지지 않게)
+function checkStyles() {
+  const bad = [];
+  for (const k of STYLE_ORDER) {
+    const st = STYLES[k];
+    for (const f of STYLE_FIELDS) if (st[f] === undefined) bad.push(`${k}: missing ${f}`);
+    if (st.scale && !SCALES[st.scale]) bad.push(`${k}: unknown scale ${st.scale}`);
+    for (const [ev, name] of Object.entries(st.inst || {})) if (!VOICES[name]) bad.push(`${k}: inst.${ev} '${name}' is not defined`);
+  }
+  if (STYLE_ORDER.length < 2) bad.push('need at least two styles');
+  if (bad.length) throw new Error('sound styles: ' + bad.join('; '));
+}
 
 // 믹서 채널: 소리 요소 하나씩. vol이 없는 채널(공간)은 스타일만 고른다
 const CHANNELS = [
@@ -110,26 +70,8 @@ const CHANNELS = [
   { key: 'space', name: '공간', noVol: true },
 ];
 
-// 악기별 [잔향, 에코] 보내는 양
-const SEND = {
-  bell: [0.8, 0.6], thump: [0.3, 0.2], pluck: [0.35, 0.5], tok: [0.25, 0.3], kick: [0.25, 0], plop: [0.4, 0.4], crackle: [0.15, 0],
-  epiano: [0.7, 1], glass: [0.9, 1], bloom: [0.6, 0.4],
-  kalimba: [0.5, 0.7], marimba: [0.45, 0.5], chirp: [0.6, 0.6], drip: [0.6, 0.8], softKick: [0.2, 0],
-  acid: [0.2, 0.6], kick909: [0.1, 0], snare: [0.25, 0.3], hat: [0.1, 0.2], blip: [0.2, 0.7],
-  koto: [0.7, 0.8],
-  hammond: [0, 0], clavioline: [0, 0], logdrum: [0, 0], timpani: [0, 0], smallBell: [0, 0],  // 아날로그 버스가 잔향 · 에코를 따로 보낸다
-};
-
-// 아날로그 녹음 버스를 지나는 악기 (Sun Ra 1963): 패너 → 포화 → 좁은 대역 → 와우 · 플러터 → 스프링 리버브 · 방
-const ANALOG_INST = new Set(['hammond', 'clavioline', 'logdrum', 'timpani', 'smallBell']);
-
 // MIDI 출력: 믹서 채널마다 MIDI 채널 하나 (0부터 → MIDI 1 ~ 9). 공간 채널은 음이 없다
 const MIDI_CH = { grow: 0, food: 1, start: 2, tok: 3, heart: 4, probe: 5, drone: 6, pad: 7, fruit: 8 };
-// 음높이가 없는 악기(북 · 잡음)는 채널마다 고정 음 (GM 타악기 번호에 가깝게: 36 킥, 38 스네어, 42 하이햇)
-const MIDI_FIXED = { grow: 42, food: 72, start: 36, tok: 38, heart: 36, probe: 76, fruit: 60 };
-const UNPITCHED = new Set(['thump', 'kick', 'crackle', 'plop', 'kick909', 'snare', 'hat', 'softKick', 'timpani']);
-// 음 길이 (초): 울림이 긴 악기는 길게
-const MIDI_LEN = { bell: 1.2, epiano: 1.6, glass: 1.4, bloom: 1.6, koto: 1.2, kalimba: 0.8, hammond: 0.6, clavioline: 0.5 };
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const MAX_VOICES = 32;                                   // 사건음 전체 동시 발음 상한
 const LIMIT = { bell: 6, stim: 4, pluck: 4, plop: 2, pulse: 8, heart: 6, grain: 10, fruit: 16 };  // 종류별 상한: 한 종류가 나머지를 굶기지 않게
@@ -138,7 +80,8 @@ const RE_PERIOD = 400;       // tick: 한 지점이 이보다 짧은 주기로 �
 const RE_CV = 0.3;
 const HEARTS = 2;            // 재진입 지점 중 가장 규칙적인 두 곳만 심장 박동을 친다 (나머지는 '톡'만)
 const SHAPE_EVERY = 15;      // 프레임: 모양(크기·굵기·흐름·고리) 특징은 천천히 변하므로 가끔만 잰다
-const DRONE_STEPS = 8;       // 드론이 내려갈 수 있는 음계 칸 수
+const DRONE_STEPS = 8;
+const MOTOR_FRONT = 5;       // 파면 세그먼트가 이보다 많으면 '파동이 지나가는 중' (모터 스타일의 킥이 돈다)       // 드론이 내려갈 수 있는 음계 칸 수
 
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -163,12 +106,14 @@ class MyceliumSound {
     this.lastTok = 0;
     this.foodHeat = 0;     // 최근 발견 횟수 (3초 반감) — 발견이 쏟아질 땐 작게, 드문 발견은 크게
     this.lastNow = 0;
+    this.frontAt = -1e9;   // 파면이 마지막으로 보인 시각
     this.frame = 0;
     this.arp = 0;
     this.bpm = 120;
     this.clocks = {};      // 격자 스타일마다 따로 도는 시계 { next: 다음 칸 시각, idx }
     this.grainAcc = {};
     for (const k of STYLE_ORDER) { if (STYLES[k].grid) this.clocks[k] = { next: 0, idx: 0 }; this.grainAcc[k] = 0; }
+    checkStyles();
     this.pos = {};         // 채널 → 스타일 손잡이 위치
     this.vol = {};         // 채널 → 음량 (0 ~ 1.5)
     this.w = {};           // 채널 → styleWeights(pos)
@@ -614,6 +559,7 @@ class MyceliumSound {
         if (c.next < now) c.next = now + 0.05;
         while (c.next < now + 0.12) {
           if (Math.random() < density) this.onGrow(sim, st, c.next, c.idx);
+          if (st.motor && c.idx % st.motor.every === 0 && now - this.frontAt < st.motor.hold) this.onMotor(sim, st, c.next);
           c.next += s;
           c.idx++;
         }
@@ -756,11 +702,11 @@ class MyceliumSound {
   midiNote(ch, inst, f, amp, t) {
     if (!this.midi || MIDI_CH[ch] === undefined) return;
     const c = MIDI_CH[ch];
-    const n = UNPITCHED.has(inst) || !(f > 20) ? MIDI_FIXED[ch] : clamp(Math.round(69 + 12 * Math.log2(f / 440)), 0, 127);
+    const n = VOICES[inst].unpitched || !(f > 20) ? MIDI_FIXED[ch] : clamp(Math.round(69 + 12 * Math.log2(f / 440)), 0, 127);
     const vel = clamp(Math.round(127 * Math.sqrt(amp / 0.55)), 15, 127);
     const at = performance.now() + Math.max(0, t - this.ctx.currentTime) * 1000;
     this.midiSend([0x90 | c, n, vel], at);
-    this.midiSend([0x80 | c, n, 0], at + (MIDI_LEN[inst] || 0.25) * 1000);
+    this.midiSend([0x80 | c, n, 0], at + VOICES[inst].len * 1000);
   }
 
   // 지속음: 원하는 음 목록과 지금 눌린 음을 비교해 바뀐 것만 떼고 누른다
@@ -797,6 +743,7 @@ class MyceliumSound {
       front++; sx += x[i];
     }
     this.info.front = front;
+    if (front >= MOTOR_FRONT) this.frontAt = now;
     const lv = clamp(Math.log10(1 + front) / 3.5, 0, 1);  // 30 → 0.43, 300 → 0.71, 3000 → 1
     this.frontNoise.gain.setTargetAtTime(0.22 * lv * lv * tp.noise, now, 0.06);
     this.frontBand.frequency.setTargetAtTime(tp.lo + (tp.hi - tp.lo) * lv, now, 0.06);
@@ -890,6 +837,7 @@ class MyceliumSound {
   onTok(x, y, heart) {
     if (heart) {
       this.each('heart', (st, g) => {
+        if (st.motor) return;  // 모터 스타일은 박동을 onMotor가 박자에 맞춰 친다
         const f = mtof(this.note(st.reg.heart, heart === 1 ? 0 : this.fifth));
         const lag = heart === 2 ? (st.grid ? this.stepLen(st) : 0.13) : 0;  // 두 번째 심장은 살짝 늦게: 쿵-쿵
         this.play('heart', st.inst.heart, x, f, (heart === 1 ? 0.55 : 0.35) * g, this.when(st) + lag, { heart });
@@ -907,6 +855,16 @@ class MyceliumSound {
         for (let r = 0; r < reps; r++) this.play('pulse', st.inst.tok, x, f * (1 + 0.12 * r), amp * (1 - 0.6 * r / reps), t + r * sub);
       } else this.play('pulse', st.inst.tok, x, f, amp, t);
     });
+  }
+
+  // 모터 스타일(st.motor)의 박동: 파면이 어딘가를 지나가는 동안만 격자의 매 박에 킥 (재진입 채널의 음량 · 무게를 따른다).
+  // 파동이 끝나면 킥도 멈춘다. 재진입처럼 스스로 도는 파동이 있으면 끝없이 이어진다
+  onMotor(sim, st, t) {
+    const w = this.weightOf('heart', st), v = this.vol.heart;
+    if (w <= 0.03 || !(v > 0)) return;
+    this.tapCh = 'heart';
+    this.play('heart', st.inst.heart, sim.W / 2, mtof(this.note(st.reg.heart, 0)), 0.5 * Math.sqrt(w) * v, t, { heart: 1 });
+    this.tapCh = null;
   }
 
   // 버섯: 원기가 생기면 위로 오르는 아르페지오, 포자를 날리기 시작하면 높은 음이 흩어지고, 포자가 싹트면 한 음
@@ -936,23 +894,27 @@ class MyceliumSound {
     if (!sim.tips.length || !(this.vol.grow > 0)) return;
     this.tapCh = 'grow';
     const tp = sim.tips[(Math.random() * sim.tips.length) | 0];
-    const inst = st.inst.grain, v = this.vol.grow;
-    let f = 0, amp = 0.06 + Math.random() * 0.08;
-    if (inst === 'kalimba') {
+    const inst = st.inst.grain, v = this.vol.grow, mode = st.grain.mode;
+    let f = 0, amp = 0.06 + Math.random() * 0.08, opt = {};
+    if (mode === 'arp') {
       // 아르페지오: 지금 화음(드론 칸 기준 1·3·5도 위로 두 옥타브)을 대체로 올라가며 걷는다
       const n = this.scale.length, rd = ((-Math.max(0, this.droneStep) % n) + n) % n;
       const chord = [0, 2, 4, n, n + 2, n + 4];
       this.arp = (this.arp + (Math.random() < 0.75 ? 1 : chord.length - 1)) % chord.length;
       f = mtof(this.note(st.reg.grain, rd + chord[this.arp]));
-      amp = 0.12;
-    } else if (inst === 'glass' || inst === 'koto' || inst === 'smallBell') {
+      amp = st.grain.amp;
+    } else if (mode === 'scale') {
       f = mtof(this.note(st.reg.grain, (Math.random() * this.scale.length * 1.5) | 0));
-      amp = inst === 'smallBell' ? 0.05 : inst === 'koto' ? 0.08 : 0.05;
-    } else if (inst === 'hat') {
+      amp = st.grain.amp;
+    } else if (mode === 'hat') {
       amp = idx % 4 === 0 ? 0.16 : 0.08;
-      if (Math.random() < 0.12) this.play('grain', 'hat', sim.x[tp.node], 0, amp * 0.6 * v, t + this.stepLen(st) / 2);  // 32분 덧박
-    } else f = 2200 + Math.random() * 4800;
-    this.play('grain', inst, sim.x[tp.node], f, amp * v, t);
+      if (Math.random() < 0.12) this.play('grain', inst, sim.x[tp.node], 0, amp * 0.6 * v, t + this.stepLen(st) / 2);  // 32분 덧박
+    } else if (mode === 'offbeat') {
+      // 4박 사이 뒷박(16분 격자의 3번째 칸)은 열린 하이햇으로 크게, 나머지 칸은 닫힌 하이햇으로 작게
+      opt = { open: idx % 4 === 2 };
+      amp = opt.open ? 0.13 : 0.05;
+    } else f = 2200 + Math.random() * 4800;  // 'noise'
+    this.play('grain', inst, sim.x[tp.node], f, amp * v, t, opt);
     this.tapCh = null;
   }
 
@@ -966,8 +928,8 @@ class MyceliumSound {
     this.activeBy[kind]++;
     const p = this.ctx.createStereoPanner();
     p.pan.value = this.pan(x);
-    const [verb, echo] = SEND[inst];
-    this.out(p, verb, echo, ANALOG_INST.has(inst));
+    const vc = VOICES[inst], [verb, echo] = vc.send;
+    this.out(p, verb, echo, vc.analog);
     if (this.tapCh) p.connect(this.taps[this.tapCh]);
     const src = this[inst](t, f, amp, p, opt);
     src.onended = () => { this.active--; this.activeBy[kind]--; };
@@ -1002,231 +964,7 @@ class MyceliumSound {
     return b;
   }
 
-  // 악기는 (시각, 주파수, 세기, 출력, 옵션)을 받아 소리를 걸고, 가장 늦게 끝나는 소스를 돌려준다.
-
-  // --- 연구실 ---
-
-  // FM 종 (비정수배 변조 → 금속성)
-  bell(t, f, amp, out) {
-    const car = this.osc('sine', f, t, t + 2.5), mod = this.osc('sine', f * 1.4, t, t + 2.5);
-    const idx = this.ctx.createGain();
-    idx.gain.setValueAtTime(f * 2.4, t);
-    idx.gain.exponentialRampToValueAtTime(f * 0.03, t + 1.6);
-    mod.connect(idx).connect(car.frequency);
-    car.connect(this.env(t, amp, 0.004, 2.4)).connect(out);
-    this.osc('sine', f * 2.76, t, t + 2.5).connect(this.env(t, amp * 0.2, 0.002, 1.1)).connect(out);
-    return car;
-  }
-
-  // 아래로 떨어지는 '쿵'. 클릭한 자극이 자발 발화보다 높게 시작
-  thump(t, f, amp, out, { user }) {
-    const o = this.osc('sine', 1, t, t + 0.7);
-    o.frequency.setValueAtTime(user ? 200 : 150, t);
-    o.frequency.exponentialRampToValueAtTime(46, t + 0.35);
-    o.connect(this.env(t, amp, 0.004, 0.6)).connect(out);
-    this.noiseHit(t, 0.06).connect(this.filter('lowpass', 1500)).connect(this.env(t, amp * 0.5, 0.001, 0.04)).connect(out);
-    return o;
-  }
-
-  // 짧은 퉁김 (톱니파 + 닫히는 필터)
-  pluck(t, f, amp, out) {
-    const o = this.osc('sawtooth', f, t, t + 0.45), lp = this.filter('lowpass', 7000, 6);
-    lp.frequency.setValueAtTime(7000, t);
-    lp.frequency.exponentialRampToValueAtTime(f * 1.2, t + 0.18);
-    o.connect(lp).connect(this.env(t, amp, 0.002, 0.4)).connect(out);
-    return o;
-  }
-
-  // 나무 '톡'
-  tok(t, f, amp, out) {
-    const o = this.osc('triangle', f, t, t + 0.5);
-    o.connect(this.env(t, amp, 0.002, 0.22)).connect(out);
-    return o;
-  }
-
-  // 심장 박동 같은 저음 킥
-  kick(t, f, amp, out, { heart }) {
-    const o = this.osc('sine', 1, t, t + 0.5);
-    o.frequency.setValueAtTime(heart === 2 ? 165 : 110, t);
-    o.frequency.exponentialRampToValueAtTime(heart === 2 ? 63 : 42, t + 0.22);
-    o.connect(this.env(t, amp, 0.003, 0.35)).connect(out);
-    return o;
-  }
-
-  // 물방울 '퐁'
-  plop(t, f, amp, out) {
-    const o = this.osc('sine', 1, t, t + 0.25);
-    o.frequency.setValueAtTime(260, t);
-    o.frequency.exponentialRampToValueAtTime(640, t + 0.09);
-    o.connect(this.env(t, amp, 0.005, 0.18)).connect(out);
-    return o;
-  }
-
-  // 흙 속 바스락: 아주 짧은 띠 잡음
-  crackle(t, f, amp, out) {
-    const dur = 0.008 + Math.random() * 0.02;
-    const s = this.noiseHit(t, dur + 0.01);
-    s.connect(this.filter('bandpass', f, 7)).connect(this.env(t, amp, 0.001, dur)).connect(out);
-    return s;
-  }
-
-  // --- Eno ---
-
-  // 전자 피아노 (로즈): 1:1 FM 몸통 + 14배 변조의 짧은 쇠 소리(tine)
-  epiano(t, f, amp, out) {
-    const end = t + 4.8;
-    const car = this.osc('sine', f, t, end), body = this.osc('sine', f, t, end), tine = this.osc('sine', f * 14, t, end);
-    const i1 = this.ctx.createGain(), i2 = this.ctx.createGain();
-    i1.gain.setValueAtTime(f * 1.2, t);
-    i1.gain.exponentialRampToValueAtTime(f * 0.08, t + 2.5);
-    i2.gain.setValueAtTime(f * 0.7, t);
-    i2.gain.exponentialRampToValueAtTime(1, t + 0.15);
-    body.connect(i1).connect(car.frequency);
-    tine.connect(i2).connect(car.frequency);
-    car.connect(this.filter('lowpass', 3000)).connect(this.env(t, amp * 0.8, 0.006, 4.6)).connect(out);
-    return car;
-  }
-
-  // 유리: 천천히 피어나는 사인 배음
-  glass(t, f, amp, out) {
-    const end = t + 2.8;
-    let last;
-    for (const [m, a] of [[1, 1], [2, 0.35], [3, 0.12]]) {
-      last = this.osc('sine', f * m, t, end);
-      last.connect(this.env(t, amp * a, 0.08, 2.6)).connect(out);
-    }
-    return last;
-  }
-
-  // 숨: 느리게 부풀었다 가라앉는 저음 (재진입 박동)
-  bloom(t, f, amp, out) {
-    const end = t + 2.6, lp = this.filter('lowpass', 600);
-    const g = this.env(t, amp * 0.6, 0.25, 2.3);
-    lp.connect(g).connect(out);
-    this.osc('sine', f * 2, t, end).connect(lp);
-    this.osc('triangle', f * 1.5, t, end).connect(this.env(t, 0.25, 0.3, 2)).connect(lp);
-    const o = this.osc('sine', f, t, end);
-    o.connect(lp);
-    return o;
-  }
-
-  // --- Green-House ---
-
-  // 칼림바: 맑은 기음 + 높은 쇠 배음이 금방 사라짐
-  kalimba(t, f, amp, out) {
-    const o = this.osc('sine', f, t, t + 1.5);
-    o.connect(this.env(t, amp, 0.002, 1.4)).connect(out);
-    this.osc('sine', f * 1.002, t, t + 1.5).connect(this.env(t, amp * 0.4, 0.002, 1.2)).connect(out);
-    this.osc('sine', f * 5.9, t, t + 0.2).connect(this.env(t, amp * 0.3, 0.001, 0.12)).connect(out);
-    return o;
-  }
-
-  // 마림바: 기음 + 4배 배음(나무 건반 조율)
-  marimba(t, f, amp, out) {
-    const o = this.osc('sine', f, t, t + 1);
-    o.connect(this.env(t, amp * 1.4, 0.002, 0.9)).connect(out);
-    this.osc('sine', f * 4, t, t + 0.15).connect(this.env(t, amp * 0.3, 0.001, 0.08)).connect(out);
-    return o;
-  }
-
-  // 새소리: 위로 튀는 짧은 지저귐 두세 번
-  chirp(t, f, amp, out) {
-    const n = 2 + ((Math.random() * 2) | 0);
-    let o;
-    for (let k = 0; k < n; k++) {
-      const s = t + k * (0.09 + Math.random() * 0.05);
-      o = this.osc('sine', f * 2, s, s + 0.12);
-      o.frequency.setValueAtTime(f * 2, s);
-      o.frequency.exponentialRampToValueAtTime(f * 3.3, s + 0.05);
-      o.frequency.exponentialRampToValueAtTime(f * 2.4, s + 0.1);
-      o.connect(this.env(s, amp * 0.5, 0.004, 0.09)).connect(out);
-    }
-    return o;
-  }
-
-  // 물방울: 위로 미끄러지는 짧은 사인
-  drip(t, f, amp, out) {
-    const o = this.osc('sine', f, t, t + 0.2);
-    o.frequency.setValueAtTime(f, t);
-    o.frequency.exponentialRampToValueAtTime(f * 1.9, t + 0.06);
-    o.connect(this.env(t, amp, 0.002, 0.14)).connect(out);
-    return o;
-  }
-
-  // 흙 속 심장: 부드럽고 둥근 킥
-  softKick(t, f, amp, out) {
-    const o = this.osc('sine', 1, t, t + 0.6);
-    o.frequency.setValueAtTime(90, t);
-    o.frequency.exponentialRampToValueAtTime(46, t + 0.15);
-    o.connect(this.filter('lowpass', 300)).connect(this.env(t, amp * 0.8, 0.01, 0.45)).connect(out);
-    return o;
-  }
-
-  // --- Aphex Twin ---
-
-  // 애시드 베이스 (303 흉내): 톱니파 + 공명 큰 필터의 빠른 엔벨로프 + 살짝 찌그러뜨림
-  acid(t, f, amp, out) {
-    const o = this.osc('sawtooth', f, t, t + 0.4), lp = this.filter('lowpass', 180, 14);
-    lp.frequency.setValueAtTime(180, t);
-    lp.frequency.linearRampToValueAtTime(Math.min(f * 12, 6000), t + 0.012);
-    lp.frequency.exponentialRampToValueAtTime(220, t + 0.25);
-    const sh = this.ctx.createWaveShaper();
-    sh.curve = this.tanhCurve;
-    o.connect(lp).connect(sh).connect(this.env(t, amp * 0.7, 0.003, 0.32)).connect(out);
-    return o;
-  }
-
-  // 909 킥: 빠르게 떨어지는 사인 + 딸깍 + 포화
-  kick909(t, f, amp, out) {
-    const o = this.osc('sine', 1, t, t + 0.5), sh = this.ctx.createWaveShaper();
-    sh.curve = this.tanhCurve;
-    o.frequency.setValueAtTime(170, t);
-    o.frequency.exponentialRampToValueAtTime(48, t + 0.07);
-    o.connect(sh).connect(this.env(t, amp, 0.001, 0.42)).connect(out);
-    this.noiseHit(t, 0.01).connect(this.env(t, amp * 0.4, 0.0005, 0.006)).connect(out);
-    return o;
-  }
-
-  // 스네어: 높은 잡음 + 짧은 몸통음 (연타하면 음높이가 오른다)
-  snare(t, f, amp, out) {
-    const n = this.noiseHit(t, 0.2);
-    n.connect(this.filter('highpass', 1200)).connect(this.env(t, amp * 1.6, 0.001, 0.16)).connect(out);
-    this.osc('triangle', clamp(f, 140, 600), t, t + 0.1).connect(this.env(t, amp, 0.001, 0.08)).connect(out);
-    return n;
-  }
-
-  // 하이햇: 아주 짧은 고역 잡음
-  hat(t, f, amp, out) {
-    const dur = 0.025 + Math.random() * 0.035;
-    const n = this.noiseHit(t, dur + 0.01);
-    n.connect(this.filter('highpass', 7500)).connect(this.env(t, amp, 0.0005, dur)).connect(out);
-    return n;
-  }
-
-  // 삑: 짧은 사각파
-  blip(t, f, amp, out) {
-    const o = this.osc('square', f * 2, t, t + 0.1);
-    o.connect(this.filter('lowpass', 4000)).connect(this.env(t, amp * 0.5, 0.001, 0.07)).connect(out);
-    return o;
-  }
-
-  // --- Moss Garden ---
-
-  // 코토: 뜯는 순간 밝았다가 금방 어두워지는 현. 셋 중 하나는 뜯은 뒤 줄을 눌러 반음 밀어 올린다(오시데)
-  koto(t, f, amp, out) {
-    const end = t + 1.9, o = this.osc('sawtooth', f, t, end), lp = this.filter('lowpass', 4200, 2);
-    lp.frequency.setValueAtTime(4200, t);
-    lp.frequency.exponentialRampToValueAtTime(Math.max(300, f * 1.5), t + 0.4);
-    if (Math.random() < 0.33) {
-      o.frequency.setValueAtTime(f, t + 0.22);
-      o.frequency.linearRampToValueAtTime(f * 1.06, t + 0.4);
-    }
-    o.connect(lp).connect(this.env(t, amp * 0.9, 0.002, 1.8)).connect(out);
-    this.osc('triangle', f * 2, t, t + 0.3).connect(this.env(t, amp * 0.25, 0.001, 0.2)).connect(out);
-    return o;
-  }
-
-  // --- Sun Ra ---
+  // 악기 자체는 src/styles/*.js에 있다. 여기는 악기들이 함께 쓰는 엔벨로프
 
   // 누른 채 있다가 놓는 엔벨로프 (오르간처럼 지속되는 소리)
   envHold(t, peak, attack, hold, release) {
@@ -1237,73 +975,6 @@ class MyceliumSound {
     g.gain.exponentialRampToValueAtTime(0.0005, t + attack + hold + release);
     return g;
   }
-
-  // Hammond B-3: 톤휠 사인들의 드로바 합 (16' 8' 5⅓' 4' 2⅔' 2'), 키 클릭, 2배음 퍼커션, 레슬리(음량 떨림 + 살짝 음높이 떨림).
-  // cluster면 반음씩 붙은 세 음을 팔뚝으로 누르듯이 (파동 시작)
-  hammond(t, f, amp, out, { cluster } = {}) {
-    const hold = cluster ? 0.55 : 0.32, end = t + 0.006 + hold + 0.3;
-    const sum = this.ctx.createGain(), leslie = this.ctx.createGain();
-    leslie.gain.value = 0.75;
-    const lfo = this.osc('sine', 6.7, t, end), ld = this.ctx.createGain(), vib = this.ctx.createGain();
-    ld.gain.value = 0.25; vib.gain.value = 9;  // 음량 ±25%, 음높이 ±9센트
-    lfo.connect(ld).connect(leslie.gain);
-    sum.connect(leslie).connect(this.envHold(t, amp * 0.22, 0.006, hold, 0.3)).connect(out);
-    let last;
-    for (const fr of cluster ? [1, 1.0595, 1.1225] : [1]) {
-      for (const [r, a] of [[0.5, 0.7], [1, 1], [1.5, 0.55], [2, 0.6], [3, 0.3], [4, 0.25]]) {
-        last = this.osc('sine', f * fr * r, t, end);
-        lfo.connect(vib).connect(last.detune);
-        const g = this.ctx.createGain();
-        g.gain.value = a;
-        last.connect(g).connect(sum);
-      }
-    }
-    // 퍼커션: 누르는 순간 2배음이 빠르게 사라짐
-    this.osc('sine', f * 2, t, t + 0.35).connect(this.env(t, amp * 0.12, 0.002, 0.3)).connect(out);
-    // 키 클릭: 접점이 닿는 순간의 짧은 잡음
-    this.noiseHit(t, 0.006).connect(this.filter('highpass', 2500)).connect(this.env(t, amp * 0.2, 0.0005, 0.004)).connect(out);
-    return last;
-  }
-
-  // Clavioline: 진공관 단음 건반. 사각파 → 코맹맹이 대역 필터, 5.5 Hz 비브라토, 처음에 살짝 아래서 미끄러져 올라온다
-  clavioline(t, f, amp, out) {
-    const end = t + 0.75, o = this.osc('square', f * 0.97, t, end);
-    o.frequency.setValueAtTime(f * 0.97, t);
-    o.frequency.exponentialRampToValueAtTime(f, t + 0.06);
-    const vib = this.osc('sine', 5.5, t, end), vd = this.ctx.createGain();
-    vd.gain.value = 14;
-    vib.connect(vd).connect(o.detune);
-    const bp = this.filter('bandpass', Math.min(f * 3, 5000), 1.6), lp = this.filter('lowpass', 2800, 0.7);
-    o.connect(bp).connect(lp).connect(this.envHold(t, amp * 0.9, 0.02, 0.32, 0.35)).connect(out);
-    return o;
-  }
-
-  // 작은 종 · 방울 (아케스트라의 작은 타악기): 비정수배 두 사인이 짧게
-  smallBell(t, f, amp, out) {
-    const o = this.osc('sine', f * 2, t, t + 0.7);
-    o.connect(this.env(t, amp, 0.001, 0.6)).connect(out);
-    this.osc('sine', f * 2 * 2.76, t, t + 0.3).connect(this.env(t, amp * 0.4, 0.001, 0.25)).connect(out);
-    return o;
-  }
-
-  // 통나무 북: 짧게 떨어지는 음높이 + 딸깍 (박자 없이)
-  logdrum(t, f, amp, out) {
-    const p = clamp(f, 120, 520), o = this.osc('sine', p * 1.3, t, t + 0.35);
-    o.frequency.exponentialRampToValueAtTime(p, t + 0.02);
-    o.connect(this.env(t, amp * 1.5, 0.001, 0.28)).connect(out);
-    this.noiseHit(t, 0.01).connect(this.filter('bandpass', p * 4, 3)).connect(this.env(t, amp * 0.6, 0.0005, 0.008)).connect(out);
-    return o;
-  }
-
-  // 팀파니: 낮은 북의 둥근 울림, 처음엔 살짝 높았다가 내려앉는다
-  timpani(t, f, amp, out) {
-    const o = this.osc('sine', 98, t, t + 1.8);
-    o.frequency.exponentialRampToValueAtTime(82, t + 0.3);
-    o.connect(this.env(t, amp * 0.8, 0.004, 1.6)).connect(out);
-    this.osc('sine', 82 * 1.5, t, t + 0.8).connect(this.env(t, amp * 0.2, 0.004, 0.6)).connect(out);
-    this.noiseHit(t, 0.08).connect(this.filter('lowpass', 900)).connect(this.env(t, amp * 0.5, 0.001, 0.06)).connect(out);
-    return o;
-  }
 }
 
-if (typeof module !== 'undefined') module.exports = { MyceliumSound, STYLES, STYLE_ORDER, SCALES, CHANNELS, SEND, styleWeights };
+if (typeof module !== 'undefined') module.exports = { MyceliumSound, STYLES, STYLE_ORDER, VOICES, SCALES, CHANNELS, defineStyle, checkStyles, styleWeights };

@@ -18,13 +18,6 @@
     --bar-on: #d0d0d0;
     --bar-off: #2c2c2c;
     --red: #e8553f;
-    /* 스타일 색: 믹서 띠 · 프리셋 견본 */
-    --lab: #c9b48a;
-    --eno: #78b3c0;
-    --moss: #5f8f62;
-    --green: #b3c45a;
-    --aphex: #e8553f;
-    --sunra: #b07ad8;
   }
   :root { color-scheme: dark; }  /* 한 가지 어두운 화면으로 정한 디자인 */
   * { box-sizing: border-box; }
@@ -264,9 +257,17 @@
   </div>
 </main>
 
-<script src="src/i18n.js?v=17"></script>
+<script src="src/i18n.js?v=18"></script>
 <script src="src/mycelium.js?v=13"></script>
-<script src="src/sound.js?v=23"></script>
-<script src="src/main.js?v=33"></script>
+<script src="src/sound.js?v=24"></script>
+<!-- 소리 스타일: 파일 하나에 하나. 이 순서가 믹서 손잡이의 왼쪽 → 오른쪽 (이웃끼리 섞인다) -->
+<script src="src/styles/lab.js?v=1"></script>
+<script src="src/styles/eno.js?v=1"></script>
+<script src="src/styles/moss.js?v=1"></script>
+<script src="src/styles/greenhouse.js?v=1"></script>
+<script src="src/styles/aphex.js?v=1"></script>
+<script src="src/styles/techno.js?v=1"></script>
+<script src="src/styles/sunra.js?v=1"></script>
+<script src="src/main.js?v=34"></script>
 </body>
 </html>
