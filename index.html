@@ -119,7 +119,8 @@
   .ring .c2 { fill: var(--text-2); font: var(--t-s) var(--font); letter-spacing: var(--t-s-track); }
   .ring.is-off .s path { fill: var(--bg-panel); stroke: var(--fill); }
   /* 구성음 건반 (보기 전용): 울리는 음 = 선택 반전, 근음 = 아래 홈 */
-  .kb.show { cursor: default; }
+  /* 두 옥타브 = 흰 건반 15개, 한 칸 1u. 판이 넓어도 늘어나지 않는다 */
+  .kb.show { cursor: default; width: calc(var(--u) * 15); max-width: 100%; }
   .kb.show i:hover { background: inherit; }
   .kb .w.on, .kb .b.on { background: var(--sel-bg); border-color: var(--sel-bg); }
   .kb .root::after { content: ''; position: absolute; left: 25%; right: 25%; bottom: var(--s1); height: var(--stroke-2); background: var(--sel-fg); }
