@@ -180,3 +180,39 @@ button { font: inherit; letter-spacing: inherit; color: inherit; background: non
 .tab.is-sel .val { color: var(--sel-fg); }
 .tab.is-sel .meter { --m-track: var(--n8); --m-fill: var(--n1); }
 .dock .stats { margin-left: auto; display: flex; align-items: center; gap: var(--s6); padding-right: var(--s8); }
+
+/* =====================================================================
+   모바일 (≤ 600 px) — 같은 토큰, 다른 배치. 규칙:
+   1. 터치 단위: u = 40 (손가락 최소 폭). 높이가 u인 모든 조작 요소가 함께 커진다
+   2. 모듈은 가로로 늘어서지 않고 세로로 쌓인다. 폭은 늘 100 %, 사이는 가로선
+   3. 판은 바닥 시트: 화면의 절반, 안에서 세로 스크롤
+   4. 독은 5칸 균등 탭. 값 · 통계는 숨기고 번호 + 이름만
+   5. 글자로 된 버튼은 기호만 남긴다 (.txt 숨김, .ico-m 보임)
+   ===================================================================== */
+.ico-m { display: none; }
+@media (max-width: 600px) {
+  :root { --u: 40px; --pad: 16px; }
+  .txt { display: none; }
+  .ico-m { display: inline; }
+  .btn { min-width: var(--u); }
+  .hide-m { display: none !important; }
+
+  .top { padding: var(--s3) var(--s4) var(--s2); }
+  .top .row { gap: var(--s2); }
+
+  .panel { height: 50vh; }
+  .panel > .page { flex-direction: column; overflow-y: auto; overscroll-behavior: contain; }
+  .mod, .mod.c2, .mod.c3, .mod.c4, .mod.c5, .mod.c6, .mod.grow { width: 100%; flex: none; border-right: 0; border-bottom: var(--stroke) solid var(--line); }
+  .mod:empty { display: none; }
+  /* 엔코더는 한 줄에 4개로 고정 (폰 폭 326 px에 4·64 + 3·8이 들어간다). 남는 것은 왼쪽 열에 맞춰 다음 줄 */
+  .encs { grid-auto-flow: row; grid-template-columns: repeat(4, var(--col)) !important; justify-content: space-between; }
+  .ro.left { white-space: nowrap; }
+  .mod-foot.encs { justify-content: space-between; }
+
+  .dock { height: calc(var(--s4) * 3); }
+  .dock .tab { flex: 1; justify-content: center; gap: var(--s1); padding: 0; flex-direction: column; }
+  .dock .tab:first-child { padding-left: 0; }
+  .dock .tab > :not(.lbl) { display: none; }
+  .dock .tab:last-of-type { border-right: 0; }
+  .dock .stats { display: none; }
+}

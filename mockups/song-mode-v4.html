@@ -13,6 +13,21 @@
   #stage { position: relative; flex: 1; min-height: calc(var(--u) * 5); background: var(--bg-stage); }
   #stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   .panel { display: none; } .panel.is-open { display: flex; }
+  .stage-tools { display: none; position: absolute; left: var(--s4); right: var(--s4); bottom: var(--s4); justify-content: space-between; }
+  .stage-tools .seg { background: var(--bg-page); }
+  .kb { width: 100%; }
+  @media (max-width: 600px) {
+    .stage-tools { display: flex; }
+    .stage-tools .seg > button { min-width: var(--u); justify-content: center; }
+    .arr-wrap { overflow-x: auto; margin: 0 calc(var(--pad) * -1); padding: 0 var(--pad); }
+    .arr { min-width: calc(var(--col) * 12); }
+    .bay { min-height: calc(var(--u) * 6); padding: 0; }
+    .jack { width: auto; flex: 1; }
+    .jack .lbl { letter-spacing: .02em; }
+    .xy { width: 100%; height: auto; aspect-ratio: 1; }
+    .song-ro { grid-template-columns: repeat(3, auto) !important; justify-content: start !important; column-gap: var(--s6) !important; row-gap: var(--s3); }
+    svg.frame { width: 100%; height: auto; }
+  }
   .page { display: none; flex: 1; min-width: 0; } .page.is-on { display: flex; }
 
   /* 근음 링 */
@@ -95,14 +110,19 @@
 <header class="top">
   <div><span class="ttl">Digital Fungi</span> <span class="lbl lbl-3">♪ sound by</span> <span class="lbl">Heegun Choi</span></div>
   <div class="row">
-    <span class="grp"><button class="btn">❚❚ Pause</button><button class="btn">↺ Reset</button><button class="btn">● Rec</button></span>
-    <span class="grp"><span class="lbl">Tool</span><span class="seg" data-pick><button class="is-sel">◉ Spore</button><button>▦ Food</button><button>ϟ Stim</button><button>⌖ Probe</button></span></span>
-    <span class="grp"><span class="lbl">View</span><span class="seg" data-pick><button class="is-sel">Colony</button><button>Flow</button></span></span>
-    <span class="grp push"><button class="btn is-off" id="snd">♪ Sound off</button><button class="btn">Help</button><button class="btn">한</button></span>
+    <span class="grp"><button class="btn">❚❚<span class="txt"> Pause</span></button><button class="btn">↺<span class="txt"> Reset</span></button><button class="btn">●<span class="txt"> Rec</span></button></span>
+    <span class="grp hide-m"><span class="lbl">Tool</span><span class="seg" data-pick><button class="is-sel">◉ Spore</button><button>▦ Food</button><button>ϟ Stim</button><button>⌖ Probe</button></span></span>
+    <span class="grp hide-m"><span class="lbl">View</span><span class="seg" data-pick><button class="is-sel">Colony</button><button>Flow</button></span></span>
+    <span class="grp push"><button class="btn is-off" id="snd">♪ Sound off</button><button class="btn"><span class="txt">Help</span><span class="ico-m">?</span></button><button class="btn">한</button></span>
   </div>
 </header>
 
-<div id="stage"><canvas id="cv"></canvas></div>
+<div id="stage"><canvas id="cv"></canvas>
+  <div class="stage-tools">
+    <span class="seg" data-pick><button class="is-sel">◉<span class="txt"> Spore</span></button><button>▦</button><button>ϟ</button><button>⌖</button></span>
+    <span class="seg" data-pick><button class="is-sel">Colony</button><button>Flow</button></span>
+  </div>
+</div>
 
 <div class="panel" id="panel">
 
@@ -178,15 +198,15 @@
     <section class="mod grow">
       <div class="mod-hd"><span class="lbl">Arrange</span><span class="lbl lbl-3">scene = 설정 스냅샷 · next = 넘어가는 조건</span></div>
       <div class="mod-body">
-        <div class="arr" id="arr">
+        <div class="arr-wrap"><div class="arr" id="arr">
           <span></span><div class="ruler" id="ruler"></div>
           <span class="ln tall lbl">Scene</span><div class="lane tall" id="L-scene"></div>
           <span class="ln lbl">Chord</span><div class="lane" id="L-chord"></div>
           <span class="ln lbl">Next</span><div class="lane" id="L-cond"></div>
           <span class="ln lbl">Energy</span><div class="lane"><svg class="energy" viewBox="0 0 1000 24" preserveAspectRatio="none"><path vector-effect="non-scaling-stroke" d="M0 22 C120 21 150 18 180 16 S320 10 360 9 S560 2 600 3 S760 12 800 14 S960 22 1000 23"/></svg></div>
-        </div>
+        </div></div>
       </div>
-      <div class="mod-foot encs" style="grid-auto-columns:auto;column-gap:var(--s8);justify-content:start">
+      <div class="mod-foot encs song-ro" style="grid-auto-columns:auto;column-gap:var(--s8);justify-content:start">
         <span class="ro left"><span class="v is-live">038.2</span><span class="lbl">Bar</span></span>
         <span class="ro left"><span class="v">~112</span><span class="lbl">Length</span></span>
         <span class="ro left"><span class="v">88</span><span class="lbl">Bpm</span></span>
@@ -318,11 +338,12 @@ function update() {
   $('#qual').innerHTML = QL.map(([q]) => `<button class="${q === qual ? 'is-sel' : ''}" data-q="${q}">${q}</button>`).join('');
   $$('#qual button').forEach(b => b.onclick = () => { qual = b.dataset.q; update(); });
   const base = 48 + NAMES.indexOf(root), tones = QUAL[qual].map(s => base + s), lit = new Set(tones);
-  const W = 20, wh = [0, 2, 4, 5, 7, 9, 11]; let h = '', x = 0;
-  for (let o = 0; o < 3; o++) for (const s of wh) { const m = 48 + o * 12 + s; h += `<i class="w${lit.has(m) ? ' on' : ''}${m === base ? ' root' : ''}" style="left:${x}px;width:${W}px"></i>`; x += W; }
+  // 흰건반 21개를 폭에 맞춰 % 로 (데스크톱 · 모바일 같은 코드)
+  const W = 100 / 21, wh = [0, 2, 4, 5, 7, 9, 11]; let h = '', x = 0;
+  for (let o = 0; o < 3; o++) for (const s of wh) { const m = 48 + o * 12 + s; h += `<i class="w${lit.has(m) ? ' on' : ''}${m === base ? ' root' : ''}" style="left:${x}%;width:${W}%"></i>`; x += W; }
   x = 0; for (let o = 0; o < 3; o++) for (const s of wh) { if ([1, 3, 6, 8, 10].includes(s + 1)) { const m = 48 + o * 12 + s + 1;
-    h += `<i class="b${lit.has(m) ? ' on' : ''}${m === base ? ' root' : ''}" style="left:${x + 12}px;width:16px"></i>`; } x += W; }
-  $('#kb').innerHTML = h; $('#kb').style.width = x + 'px';
+    h += `<i class="b${lit.has(m) ? ' on' : ''}${m === base ? ' root' : ''}" style="left:${x + W * .62}%;width:${W * .76}%"></i>`; } x += W; }
+  $('#kb').innerHTML = h;
   $('#tones').innerHTML = tones.map((m, i) => `<span class="ro"><span class="v">${NAMES[m % 12]}${Math.floor(m / 12) - 1}</span><span class="lbl">${DEG[i] || '+'}</span></span>`).join('');
   $('#dk-chord').textContent = `${root} ${qual}`;
 }
