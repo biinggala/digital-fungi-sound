@@ -1,7 +1,7 @@
 'use strict';
 // 식물 음악: 리디안, 칼림바 아르페지오(성장), 새소리(먹이 발견), 물방울, 따뜻한 코러스 패드, 느린 템포. 드론은 거의 없다
 defineStyle('greenhouse', {
-  color: '#b3c45a', title: { en: 'Green-House', ko: 'Green-House' },
+  color: 'var(--c-green)', title: { en: 'Green-House', ko: 'Green-House' },
   name: 'Green-House', short: 'Green', scale: 'lydian', tonic: 64, room: 'long', reverb: 0.6, echo: 0.35, echoTimes: [0.536, 0.714],
   drone: { level: 0.25, saw: 0, sub: 0, bright: 0.7, wobble: 6 },
   pad: { level: 1.1, saw: 0, bright: 0.8, fade: 3, swell: 0.6, wobble: 8, wobbleRate: 0.8 },

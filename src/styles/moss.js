@@ -1,7 +1,7 @@
 'use strict';
 // David Bowie "Moss Garden" (Heroes, 1977, Eno와 함께): 코토 뜯는 소리와 가끔 밀어 올리는 음(오시데), 아주 느리게 부푸는 신스 패드, 일본 음계
 defineStyle('moss', {
-  color: '#5f8f62', title: { en: 'Moss Garden (David Bowie)', ko: 'Moss Garden (David Bowie)' },
+  color: 'var(--c-moss)', title: { en: 'Moss Garden (David Bowie)', ko: 'Moss Garden (David Bowie)' },
   name: 'Moss Garden', short: 'Moss', scale: 'inScale', tonic: 62, room: 'long', reverb: 0.75, echo: 0.4, echoTimes: [1.7, 2.3],
   drone: { level: 0.8, saw: 0.15, sub: 0.7, bright: 0.5, wobble: 3 },
   pad: { level: 1.3, saw: 0.35, bright: 0.5, fade: 8, swell: 1, wobble: 4, wobbleRate: 0.07 },

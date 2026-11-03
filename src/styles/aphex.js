@@ -1,7 +1,7 @@
 'use strict';
 // Selected Ambient Works의 흔들리는 테이프 패드 + drill'n'bass: 16분 격자, 하이햇(성장), 스네어 연타(스파이크), 애시드 베이스(먹이)
 defineStyle('aphex', {
-  color: '#e8553f', title: { en: 'Aphex Twin', ko: 'Aphex Twin' },
+  color: 'var(--c-aphex)', title: { en: 'Aphex Twin', ko: 'Aphex Twin' },
   name: 'Aphex Twin', short: 'Aphex', scale: 'dorian', tonic: 62, room: 'short', reverb: 0.3, echo: 0.2, echoTimes: [0.33, 0.5],
   drone: { level: 0.9, saw: 1.2, sub: 1, bright: 1.3, wobble: 22 },
   pad: { level: 0.8, saw: 1, bright: 0.7, fade: 1.5, swell: 0, wobble: 22, wobbleRate: 0.31 },

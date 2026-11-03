@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Song Mode v4</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../src/ds.css">
+<style>
+  /* 이 파일은 배치와 전용 부품의 모양만 정한다. 색 · 크기는 모두 ds.css 토큰 */
+  html, body { height: 100%; overflow: hidden; }
+  body { display: flex; flex-direction: column; }
+  #stage { position: relative; flex: 1; min-height: calc(var(--u) * 5); background: var(--bg-stage); }
+  #stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .panel { display: none; } .panel.is-open { display: flex; }
+  .stage-tools { display: none; position: absolute; left: var(--s4); right: var(--s4); bottom: var(--s4); justify-content: space-between; }
+  .stage-tools .seg { background: var(--bg-page); }
+  .kb { width: 100%; }
+  @media (max-width: 600px) {
+    .stage-tools { display: flex; }
+    .stage-tools .seg > button { min-width: var(--u); justify-content: center; }
+    .arr-wrap { overflow-x: auto; margin: 0 calc(var(--pad) * -1); padding: 0 var(--pad); }
+    .arr { min-width: calc(var(--col) * 12); }
+    .bay { min-height: calc(var(--u) * 6); padding: 0; }
+    .jack { width: auto; flex: 1; }
+    .jack .lbl { letter-spacing: .02em; }
+    .xy { width: 100%; height: auto; aspect-ratio: 1; }
+    .song-ro { grid-template-columns: repeat(3, auto) !important; justify-content: start !important; column-gap: var(--s6) !important; row-gap: var(--s3); }
+    svg.frame { width: 100%; height: auto; }
+  }
+  .page { display: none; flex: 1; min-width: 0; } .page.is-on { display: flex; }
+
+  /* 근음 링 */
+  .ring .s { cursor: pointer; }
+  .ring .s path { fill: var(--fill); stroke: var(--bg-panel); stroke-width: var(--stroke-2); }
+  .ring .s text { fill: var(--text-3); font: var(--t-m) var(--font); }
+  .ring .s.near text { fill: var(--text-1); }
+  .ring .s:hover path { fill: var(--line); }
+  .ring .s.is-sel path { fill: var(--sel-bg); } .ring .s.is-sel text { fill: var(--sel-fg); }
+  .ring .c1 { fill: var(--text-em); font: var(--t-l) var(--font); }
+  .ring .c2 { fill: var(--text-2); font: var(--t-s) var(--font); letter-spacing: var(--t-s-track); }
+
+  /* 건반: 꺼진 흰건반 = 조작선, 검은건반 = 무대색, 구성음 = 선택 채움, 근음 = 선택 채움 + 아래 홈 */
+  .kb { position: relative; height: calc(var(--u) * 2 + var(--s2)); }
+  .kb i { position: absolute; top: 0; }
+  .kb .w { height: 100%; background: var(--line-ctl); border-right: var(--stroke) solid var(--bg-panel); }
+  .kb .b { height: 60%; background: var(--bg-stage); border: var(--stroke) solid var(--line-ctl); border-top: 0; z-index: 1; }
+  .kb .on { background: var(--sel-bg); } .kb .b.on { border-color: var(--sel-bg); }
+  .kb .root::after { content: ''; position: absolute; left: 25%; right: 25%; bottom: var(--s1); height: var(--stroke-2); background: var(--sel-fg); }
+
+  /* XY 공간 패드: 칸 = 1u */
+  .xy { width: calc(var(--u) * 7); height: calc(var(--u) * 7); cursor: crosshair; touch-action: none;
+    background-image: linear-gradient(var(--fill) 1px, transparent 1px), linear-gradient(90deg, var(--fill) 1px, transparent 1px);
+    background-size: var(--u) var(--u); }
+  .xy .h, .xy .vv { position: absolute; background: var(--text-2); }
+  .xy .h { left: 0; right: 0; height: var(--stroke); } .xy .vv { top: 0; bottom: 0; width: var(--stroke); }
+  .xy .pt { position: absolute; width: var(--s2); height: var(--s2); margin: calc(var(--s1) * -1); background: var(--text-em); }
+  .xy svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .xy polyline { fill: none; stroke: var(--live); stroke-width: var(--stroke); }
+
+  /* 트랙 줄 */
+  .tracks > button { grid-template-columns: var(--s4) 1fr calc(var(--u) * 4) var(--u); }
+  .inst { display: flex; align-items: center; gap: var(--s2); }
+
+  /* 스텝: 4마디 기록, 칸 = 1u 높이의 절반 */
+  .steps { display: grid; grid-template-columns: repeat(16, 1fr); gap: var(--stroke-2); }
+  .steps i { height: var(--s3); background: var(--fill); }
+  .steps i.q { background: var(--line); }
+  .steps i.hit { background: var(--fill-2); }
+  .steps i.old { opacity: .45; }
+  .steps i.now { background: var(--live); }
+
+  /* 곡 배치 */
+  .arr { position: relative; display: grid; grid-template-columns: calc(var(--col) + var(--s2)) 1fr; row-gap: var(--s2); }
+  .arr .ln { height: var(--u); display: flex; align-items: center; }
+  .arr .ln.tall { height: calc(var(--u) + var(--s2)); }
+  .lane { position: relative; height: var(--u); }
+  .lane.tall { height: calc(var(--u) + var(--s2)); }
+  .ruler { position: relative; height: var(--s4); border-bottom: var(--stroke) solid var(--line); }
+  .ruler i { position: absolute; bottom: 0; width: var(--stroke); height: var(--s1); background: var(--line-ctl); }
+  .ruler i.m { height: var(--s2); background: var(--text-3); }
+  .ruler span { position: absolute; top: 0; padding-left: var(--s1); }
+  .blk { position: absolute; top: 0; bottom: 0; background: var(--fill); border-top: var(--stroke-2) solid; padding: var(--s1) var(--s2) 0; overflow: hidden; white-space: nowrap; }
+  .blk.lab { border-top-color: var(--c-lab); } .blk.eno { border-top-color: var(--c-eno); } .blk.moss { border-top-color: var(--c-moss); }
+  .blk.green { border-top-color: var(--c-green); } .blk.aphex { border-top-color: var(--c-aphex); } .blk.ra { border-top-color: var(--c-ra); }
+  .cc { position: absolute; top: 0; bottom: 0; border-left: var(--stroke) solid var(--line); padding: var(--s1) var(--s2); white-space: nowrap; overflow: hidden; }
+  .cond { position: absolute; top: var(--s1); white-space: nowrap; }
+  .energy { width: 100%; height: var(--u); display: block; }
+  .energy path { fill: none; stroke: var(--text-2); stroke-width: var(--stroke); }
+  .ph { position: absolute; top: 0; bottom: 0; width: var(--stroke); background: var(--live); pointer-events: none; }
+  .ph .lbl { position: absolute; bottom: 0; left: var(--s1); color: var(--live); }
+
+  /* 패치 베이 */
+  .bay { position: relative; flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding: 0 var(--s2); }
+  .jrow { display: flex; justify-content: space-between; }
+  .jack { display: flex; flex-direction: column; align-items: center; gap: var(--s1); width: var(--col); }
+  .jack svg { display: block; }
+  .jack .o { fill: none; stroke: var(--text-3); } .jack .i { fill: var(--bg-stage); stroke: var(--line-ctl); }
+  .jack.used .o { stroke: var(--text-1); }
+  .cables { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+  .cables path { fill: none; stroke: var(--text-2); stroke-width: var(--stroke-2); }
+  .cables circle { fill: var(--text-2); }
+  .cables .is-sel path { stroke: var(--text-em); } .cables .is-sel circle { fill: var(--text-em); }
+  .amts > button { grid-template-columns: 1fr calc(var(--col) - var(--s4)); }
+  .amts > button > :last-child { text-align: right; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div><span class="ttl">Digital Fungi</span> <span class="lbl lbl-3">♪ sound by</span> <span class="lbl">Heegun Choi</span></div>
+  <div class="row">
+    <span class="grp"><button class="btn">❚❚<span class="txt"> Pause</span></button><button class="btn">↺<span class="txt"> Reset</span></button><button class="btn">●<span class="txt"> Rec</span></button></span>
+    <span class="grp hide-m"><span class="lbl">Tool</span><span class="seg" data-pick><button class="is-sel">◉ Spore</button><button>▦ Food</button><button>ϟ Stim</button><button>⌖ Probe</button></span></span>
+    <span class="grp hide-m"><span class="lbl">View</span><span class="seg" data-pick><button class="is-sel">Colony</button><button>Flow</button></span></span>
+    <span class="grp push"><button class="btn is-off" id="snd">♪ Sound off</button><button class="btn"><span class="txt">Help</span><span class="ico-m">?</span></button><button class="btn">한</button></span>
+  </div>
+</header>
+
+<div id="stage"><canvas id="cv"></canvas>
+  <div class="stage-tools">
+    <span class="seg" data-pick><button class="is-sel">◉<span class="txt"> Spore</span></button><button>▦</button><button>ϟ</button><button>⌖</button></span>
+    <span class="seg" data-pick><button class="is-sel">Colony</button><button>Flow</button></span>
+  </div>
+</div>
+
+<div class="panel" id="panel">
+
+  <!-- 1 CHORD -->
+  <div class="page" id="p-chord">
+    <section class="mod c3">
+      <div class="mod-hd"><span class="lbl">Root</span><span class="lbl lbl-3">circle of fifths</span></div>
+      <div class="mod-body" style="align-items:center"><svg class="ring" id="ring" width="208" height="208" viewBox="-104 -104 208 208"></svg></div>
+    </section>
+    <section class="mod c2">
+      <div class="mod-hd"><span class="lbl">Quality</span></div>
+      <div class="mod-body"><div class="list cols-2" id="qual"></div></div>
+    </section>
+    <section class="mod grow">
+      <div class="mod-hd"><span class="lbl">Voicing</span><span class="lbl lbl-3">구성음 = 반전 · 근음 = 아래 홈</span></div>
+      <div class="mod-body"><div class="kb" id="kb"></div><div class="encs" id="tones"></div></div>
+      <div class="mod-foot encs">
+        <div data-enc="Spread|2 oct|.5"></div><div data-enc="Invert|0|0"></div><div data-enc="Octave|3|.45"></div><div data-enc="Voices|4|.5"></div>
+      </div>
+    </section>
+    <section class="mod c3">
+      <div class="mod-hd"><span class="lbl">Source</span></div>
+      <div class="mod-body">
+        <div class="list" data-pick>
+          <button class="is-sel" style="grid-template-columns:1fr auto"><span class="name">Hold</span><span class="lbl">manual</span></button>
+          <button style="grid-template-columns:1fr auto"><span class="name">Network</span><span class="lbl">loops</span></button>
+          <button style="grid-template-columns:1fr auto"><span class="name">Song</span><span class="lbl">arrange</span></button>
+        </div>
+      </div>
+      <div class="mod-foot t3">균사체의 모든 음은<br>이 화음의 구성음에서 고른다</div>
+    </section>
+    <section class="mod c3">
+      <div class="mod-hd"><span class="lbl">Space</span><span class="lbl is-live">● rec</span></div>
+      <div class="mod-body"><div class="frame xy" id="xy"><svg viewBox="0 0 1 1" preserveAspectRatio="none"><polyline id="trail" vector-effect="non-scaling-stroke"/></svg><i class="h"></i><i class="vv"></i><i class="pt"></i></div></div>
+      <div class="mod-foot encs"><span class="ro"><span class="v" id="dly">0.62</span><span class="lbl">Delay</span></span><span class="ro"><span class="v" id="rev">0.70</span><span class="lbl">Reverb</span></span></div>
+    </section>
+  </div>
+
+  <!-- 2 SOUND -->
+  <div class="page" id="p-sound">
+    <section class="mod c4">
+      <div class="mod-hd"><span class="lbl">Tracks</span><span><span class="lbl">Preset</span> <span class="val">Aphex</span></span></div>
+      <div class="mod-body"><div class="list tracks" id="tracks" data-pick></div></div>
+    </section>
+    <section class="mod c4">
+      <div class="mod-hd"><span class="lbl">Source</span><span class="lbl lbl-3">02 food found</span></div>
+      <div class="mod-body">
+        <div class="inst"><span class="sw aphex"></span><span class="big name">Acid</span></div>
+        <svg class="frame" width="280" height="56" viewBox="0 0 280 56"><line class="grid-line" x1="0" y1="28" x2="280" y2="28"/><path class="plot" d="M0 44 L40 12 L40 44 L80 12 L80 44 L120 12 L120 44 L160 12 L160 44 L200 12 L200 44 L240 12 L240 44 L280 12"/></svg>
+      </div>
+      <div class="mod-foot encs"><div data-enc="Tune|0|.5"></div><div data-enc="Octave|−1|.35"></div><div data-enc="Cutoff|1.4k|.62|live"></div><div data-enc="Reso|0.8|.8"></div></div>
+    </section>
+    <section class="mod c4">
+      <div class="mod-hd"><span class="lbl">Amp env</span></div>
+      <div class="mod-body">
+        <svg class="frame" width="280" height="88" viewBox="0 0 280 88">
+          <line class="grid-line" x1="70" y1="0" x2="70" y2="88"/><line class="grid-line" x1="140" y1="0" x2="140" y2="88"/><line class="grid-line" x1="210" y1="0" x2="210" y2="88"/>
+          <path class="plot" d="M0 80 L12 8 L60 44 L208 44 L280 80"/>
+          <rect class="handle" x="8" y="4" width="8" height="8"/><rect class="handle" x="56" y="40" width="8" height="8"/><rect class="handle" x="204" y="40" width="8" height="8"/>
+        </svg>
+      </div>
+      <div class="mod-foot encs"><div data-enc="Attack|4 ms|.08"></div><div data-enc="Decay|180|.4"></div><div data-enc="Sustain|0.55|.55"></div><div data-enc="Release|420|.6"></div></div>
+    </section>
+    <section class="mod grow">
+      <div class="mod-hd"><span class="lbl">Trigger</span><span class="lbl lbl-3">last 4 bars</span></div>
+      <div class="mod-body"><div class="steps" id="steps"></div></div>
+      <div class="mod-foot encs"><div data-enc="Grid|1/16|.75"></div><div data-enc="Prob|62%|.62"></div><div data-enc="Swing|56|.3"></div><div data-enc="Gap|0.12|.2"></div></div>
+    </section>
+  </div>
+
+  <!-- 3 SONG -->
+  <div class="page" id="p-song">
+    <section class="mod grow">
+      <div class="mod-hd"><span class="lbl">Arrange</span><span class="lbl lbl-3">scene = 설정 스냅샷 · next = 넘어가는 조건</span></div>
+      <div class="mod-body">
+        <div class="arr-wrap"><div class="arr" id="arr">
+          <span></span><div class="ruler" id="ruler"></div>
+          <span class="ln tall lbl">Scene</span><div class="lane tall" id="L-scene"></div>
+          <span class="ln lbl">Chord</span><div class="lane" id="L-chord"></div>
+          <span class="ln lbl">Next</span><div class="lane" id="L-cond"></div>
+          <span class="ln lbl">Energy</span><div class="lane"><svg class="energy" viewBox="0 0 1000 24" preserveAspectRatio="none"><path vector-effect="non-scaling-stroke" d="M0 22 C120 21 150 18 180 16 S320 10 360 9 S560 2 600 3 S760 12 800 14 S960 22 1000 23"/></svg></div>
+        </div></div>
+      </div>
+      <div class="mod-foot encs song-ro" style="grid-auto-columns:auto;column-gap:var(--s8);justify-content:start">
+        <span class="ro left"><span class="v is-live">038.2</span><span class="lbl">Bar</span></span>
+        <span class="ro left"><span class="v">~112</span><span class="lbl">Length</span></span>
+        <span class="ro left"><span class="v">88</span><span class="lbl">Bpm</span></span>
+        <span class="ro left"><span class="v">4/4</span><span class="lbl">Meter</span></span>
+        <span class="ro left"><span class="v">C · Network</span><span class="lbl">Scene</span></span>
+      </div>
+    </section>
+    <section class="mod c3">
+      <div class="mod-hd"><span class="lbl">Transport</span></div>
+      <div class="mod-body">
+        <span class="seg fill" data-pick><button>■</button><button class="is-sel">▶ Song</button><button>Loop</button></span>
+        <button class="btn">+ Capture scene</button>
+      </div>
+      <div class="mod-foot">
+        <div class="mod-hd" style="margin-bottom:var(--s1)"><span class="lbl">Export</span><span class="lbl lbl-3">seed 4F2A·91</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--s1)"><button class="btn">Wav</button><button class="btn">Stems</button><button class="btn">Midi</button><button class="btn">Link</button></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 4 PATCH -->
+  <div class="page" id="p-patch">
+    <section class="mod grow">
+      <div class="mod-hd"><span class="lbl">Patch</span><span class="lbl lbl-3">network → sound · drag to connect</span></div>
+      <div class="bay" id="bay"><div class="jrow" id="outs"></div><div class="jrow" id="ins"></div><svg class="cables" id="cables"></svg></div>
+    </section>
+    <section class="mod c4">
+      <div class="mod-hd"><span class="lbl">Cables</span><span class="lbl lbl-3">6</span></div>
+      <div class="mod-body"><div class="list amts" id="amts" data-pick></div></div>
+      <div class="mod-foot encs"><div data-enc="Amount|+0.42|.71"></div><div data-enc="Slew|0.8 s|.3"></div><div data-enc="Curve|lin|.5"></div><div data-enc="Offset|0|.5"></div></div>
+    </section>
+  </div>
+
+  <!-- 5 SIM -->
+  <div class="page" id="p-sim">
+    <section class="mod c3"><div class="mod-hd"><span class="lbl">Growth</span></div><div class="mod-body"></div>
+      <div class="mod-foot encs rows-2" style="grid-template-columns:repeat(3,var(--col))"><div data-enc="Speed|1.0|.3"></div><div data-enc="Branch|0.04|.4"></div><div data-enc="Chemo|1.0|.25"></div><div data-enc="Avoid|0.3|.15"></div><div data-enc="Adapt|0.02|.2"></div><div data-enc="Compete μ|1.5|.4"></div></div></section>
+    <section class="mod c2"><div class="mod-hd"><span class="lbl">Electric</span></div><div class="mod-body"></div>
+      <div class="mod-foot encs rows-2" style="grid-template-columns:repeat(2,var(--col))"><div data-enc="Spont|0.004|.2"></div><div data-enc="Recov ε|0.003|.1"></div><div data-enc="Loop|1.0|1"></div><div data-enc="Spike|3|.5"></div></div></section>
+    <section class="mod c2"><div class="mod-hd"><span class="lbl">Fruit</span></div><div class="mod-body"></div>
+      <div class="mod-foot encs rows-2" style="grid-template-columns:repeat(2,var(--col))"><div data-enc="Mat R|0.02|.25"></div><div data-enc="Mat D|0.12|.6"></div><div data-enc="Satur|0.03|.25"></div><div data-enc="Invest|0.5|.5"></div></div></section>
+    <section class="mod c4"><div class="mod-hd"><span class="lbl">Environment</span></div>
+      <div class="mod-body"><div class="list" data-pick>
+        <button class="is-sel" style="grid-template-columns:1fr auto"><span class="name">Transport</span><span>Local</span></button>
+        <button style="grid-template-columns:1fr auto"><span class="name">Soil</span><span>On</span></button>
+        <button style="grid-template-columns:1fr auto"><span class="name">Mat layer</span><span>On</span></button>
+        <button style="grid-template-columns:1fr auto"><span class="name">Zoom</span><span>1.0×</span></button>
+      </div></div>
+      <div class="mod-foot"><span class="seg fill" data-pick><button class="is-sel">Local</button><button>Global</button></span></div></section>
+    <section class="mod grow"></section>
+  </div>
+</div>
+
+<nav class="dock">
+  <div class="tab" data-p="chord"><span class="lbl lbl-3">1</span><span class="lbl">Chord</span><span class="val" id="dk-chord">G min7</span></div>
+  <div class="tab" data-p="sound"><span class="lbl lbl-3">2</span><span class="lbl">Sound</span><span class="val">Aphex</span><span class="meter" style="width:var(--s8)"><b style="width:70%"></b></span></div>
+  <div class="tab" data-p="song"><span class="lbl lbl-3">3</span><span class="lbl">Song</span><span class="val">C · Network</span><span class="val is-live">038.2</span></div>
+  <div class="tab" data-p="patch"><span class="lbl lbl-3">4</span><span class="lbl">Patch</span><span class="val">6</span></div>
+  <div class="tab" data-p="sim"><span class="lbl lbl-3">5</span><span class="lbl">Sim</span></div>
+  <div class="stats">
+    <span class="ro left"><span class="v">210</span><span class="lbl">Day</span></span>
+    <span class="ro left"><span class="v">8</span><span class="lbl">Colonies</span></span>
+    <span class="ro left"><span class="v">112</span><span class="lbl">Tips</span></span>
+    <span class="ro left"><span class="v">20</span><span class="lbl">Loops</span></span>
+    <span class="ro left"><span class="v">1</span><span class="lbl">Fruit</span></span>
+  </div>
+</nav>
+
+<script>
+const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const NS = 'http://www.w3.org/2000/svg';
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+// 판: 탭 · 숫자키 1–5 · esc
+function open(p) {
+  $$('.tab').forEach(t => t.classList.toggle('is-sel', t.dataset.p === p));
+  $$('.page').forEach(x => x.classList.toggle('is-on', x.id === 'p-' + p));
+  $('#panel').classList.toggle('is-open', !!p);
+  drawStage(); if (p === 'patch') drawCables();
+}
+$$('.tab').forEach(t => t.onclick = () => open(t.classList.contains('is-sel') ? null : t.dataset.p));
+addEventListener('keydown', e => { if (e.key === 'Escape') open(null); const i = '12345'.indexOf(e.key); if (i >= 0) $$('.tab')[i].click(); });
+
+// 선택 컨트롤 공통: data-pick 안에서 하나만 is-sel
+document.addEventListener('click', e => { const b = e.target.closest('[data-pick] > button'); if (!b) return;
+  [...b.parentElement.children].forEach(x => x.classList.toggle('is-sel', x === b)); if (b.parentElement.id === 'amts') drawCables(); });
+$('#snd').onclick = e => { const on = e.currentTarget.classList.toggle('is-off') === false; e.currentTarget.textContent = on ? '♪ Sound on' : '♪ Sound off'; };
+
+// 엔코더
+const A0 = Math.PI * .75, SPAN = Math.PI * 1.5, R = 14;
+const arc = (a0, a1) => { const p = a => `${(Math.cos(a) * R).toFixed(2)} ${(Math.sin(a) * R).toFixed(2)}`;
+  return `M${p(a0)} A${R} ${R} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${p(a1)}`; };
+function enc(el) {
+  const [label, v, f, live] = el.dataset.enc.split('|');
+  el.className = 'enc ro' + (live ? ' is-live' : ''); el.f = +f;
+  el.innerHTML = `<svg width="32" height="32" viewBox="-16 -16 32 32"><path class="trk" stroke-width="2" fill="none"/><path class="arc" stroke-width="2" fill="none"/><line class="ndl" stroke-width="2"/></svg>
+    <span class="v">${v}</span><span class="lbl">${label.replace(/([με])/g, '<span class="keep">$1</span>')}</span>`;
+  paint(el);
+  el.onpointerdown = e => { el.setPointerCapture(e.pointerId); const y0 = e.clientY, f0 = el.f;
+    el.onpointermove = ev => { el.f = Math.min(1, Math.max(0, f0 + (y0 - ev.clientY) / 120)); paint(el); };
+    el.onpointerup = () => el.onpointermove = null; };
+}
+function paint(el) {
+  const a = A0 + SPAN * el.f;
+  $('.trk', el).setAttribute('d', arc(A0, A0 + SPAN));
+  $('.arc', el).setAttribute('d', el.f > .005 ? arc(A0, a) : '');
+  const n = $('.ndl', el); n.setAttribute('x1', Math.cos(a) * 6); n.setAttribute('y1', Math.sin(a) * 6); n.setAttribute('x2', Math.cos(a) * R); n.setAttribute('y2', Math.sin(a) * R);
+}
+
+// 1 화음
+const FIFTHS = ['C','G','D','A','E','B','F♯','D♭','A♭','E♭','B♭','F'];
+const NAMES = ['C','D♭','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
+const QL = [['maj',[0,4,7]],['min',[0,3,7]],['dom7',[0,4,7,10]],['maj7',[0,4,7,11]],['min7',[0,3,7,10]],['min9',[0,3,7,10,14]],
+  ['sus2',[0,2,7]],['sus4',[0,5,7]],['add9',[0,4,7,14]],['6/9',[0,4,7,9,14]],['dim',[0,3,6]],['aug',[0,4,8]],['quartal',[0,5,10,15]],['5th',[0,7]]];
+const QUAL = Object.fromEntries(QL), DEG = ['Root','3rd','5th','7th','9th'];
+let root = 'G', qual = 'min7';
+function ring() {
+  const k = FIFTHS.indexOf(root), ri = 52, ro = 100, pt = (r, a) => `${(Math.cos(a) * r).toFixed(2)} ${(Math.sin(a) * r).toFixed(2)}`;
+  $('#ring').innerHTML = FIFTHS.map((n, i) => {
+    const a0 = (i - .5) / 12 * 2 * Math.PI - Math.PI / 2, a1 = (i + .5) / 12 * 2 * Math.PI - Math.PI / 2, d = (i - k + 12) % 12;
+    const cls = n === root ? 'is-sel' : [1, 11, 2, 10].includes(d) ? 'near' : '';
+    return `<g class="s ${cls}" data-n="${n}"><path d="M${pt(ro, a0)} A${ro} ${ro} 0 0 1 ${pt(ro, a1)} L${pt(ri, a1)} A${ri} ${ri} 0 0 0 ${pt(ri, a0)}Z"/>
+      <text x="${Math.cos((a0 + a1) / 2) * 76}" y="${Math.sin((a0 + a1) / 2) * 76 + 4}" text-anchor="middle">${n}</text></g>`; }).join('')
+    + `<text class="c1" x="0" y="2" text-anchor="middle">${root}</text><text class="c2" x="0" y="20" text-anchor="middle">${qual.toUpperCase()}</text>`;
+  $$('#ring .s').forEach(g => g.onclick = () => { root = g.dataset.n; update(); });
+}
+function update() {
+  ring();
+  $('#qual').innerHTML = QL.map(([q]) => `<button class="${q === qual ? 'is-sel' : ''}" data-q="${q}">${q}</button>`).join('');
+  $$('#qual button').forEach(b => b.onclick = () => { qual = b.dataset.q; update(); });
+  const base = 48 + NAMES.indexOf(root), tones = QUAL[qual].map(s => base + s), lit = new Set(tones);
+  // 흰건반 21개를 폭에 맞춰 % 로 (데스크톱 · 모바일 같은 코드)
+  const W = 100 / 21, wh = [0, 2, 4, 5, 7, 9, 11]; let h = '', x = 0;
+  for (let o = 0; o < 3; o++) for (const s of wh) { const m = 48 + o * 12 + s; h += `<i class="w${lit.has(m) ? ' on' : ''}${m === base ? ' root' : ''}" style="left:${x}%;width:${W}%"></i>`; x += W; }
+  x = 0; for (let o = 0; o < 3; o++) for (const s of wh) { if ([1, 3, 6, 8, 10].includes(s + 1)) { const m = 48 + o * 12 + s + 1;
+    h += `<i class="b${lit.has(m) ? ' on' : ''}${m === base ? ' root' : ''}" style="left:${x + W * .62}%;width:${W * .76}%"></i>`; } x += W; }
+  $('#kb').innerHTML = h;
+  $('#tones').innerHTML = tones.map((m, i) => `<span class="ro"><span class="v">${NAMES[m % 12]}${Math.floor(m / 12) - 1}</span><span class="lbl">${DEG[i] || '+'}</span></span>`).join('');
+  $('#dk-chord').textContent = `${root} ${qual}`;
+}
+update();
+
+// XY
+const xy = $('#xy'); let pts = Array.from({ length: 40 }, (_, i) => [.5 + .18 * Math.cos(i / 6) + i * .003, .45 + .15 * Math.sin(i / 6)]);
+function pxy() { const [x, y] = pts[pts.length - 1];
+  $('.h', xy).style.top = y * 100 + '%'; $('.vv', xy).style.left = x * 100 + '%'; $('.pt', xy).style.left = x * 100 + '%'; $('.pt', xy).style.top = y * 100 + '%';
+  $('#dly').textContent = x.toFixed(2); $('#rev').textContent = (1 - y).toFixed(2); $('#trail').setAttribute('points', pts.map(p => p.join(',')).join(' ')); }
+pxy();
+xy.onpointerdown = e => { xy.setPointerCapture(e.pointerId); pts = []; const mv = ev => { const r = xy.getBoundingClientRect();
+  pts.push([Math.min(1, Math.max(0, (ev.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (ev.clientY - r.top) / r.height))]); pxy(); };
+  mv(e); xy.onpointermove = mv; xy.onpointerup = () => xy.onpointermove = null; };
+
+// 2 소리
+const TR = [['Growth','Hat','aphex',.45],['Food found','Acid','aphex',.8],['Wave start','909','aphex',.3],['Spike','Snare','aphex',.55],
+  ['Reentry','Kick','lab',.7],['Probe','Blip','aphex',.1],['Drone','Tape pad','moss',.6],['Pad front','Hammond','ra',.4],['Mushroom','E-piano','eno',.2]];
+$('#tracks').innerHTML = TR.map(([n, ins, st, l], i) => `<button class="${i === 1 ? 'is-sel' : ''}"><span class="lbl lbl-3">${i + 1}</span><span class="name">${n}</span><span class="inst t2"><span class="sw ${st}"></span><span class="name">${ins}</span></span><span class="meter"><b style="width:${l * 100}%"></b></span></button>`).join('');
+const hits = [[0,3,6,10,14],[0,2,6,7,11,14],[0,3,6,7,10,14],[0,3,6,7]];
+$('#steps').innerHTML = hits.map((row, r) => Array.from({ length: 16 }, (_, i) => `<i class="${i % 4 === 0 ? 'q ' : ''}${row.includes(i) ? 'hit ' : ''}${r < 3 ? 'old ' : ''}${r === 3 && i === 9 ? 'now' : ''}"></i>`).join('')).join('');
+
+// 3 곡
+const BARS = 112, pc = b => b / BARS * 100 + '%';
+const SC = [['A','Spore','eno',0,16],['B','Explore','green',16,36],['C','Network','aphex',36,64],['D','Fruit','ra',64,88],['E','Decay','moss',88,112]];
+let rh = ''; for (let b = 0; b <= BARS; b += 4) rh += `<i class="${b % 16 ? '' : 'm'}" style="left:${pc(b)}"></i>` + (b % 16 === 0 && b < BARS ? `<span class="lbl lbl-3" style="left:${pc(b)}">${b + 1}</span>` : '');
+$('#ruler').innerHTML = rh;
+$('#L-scene').innerHTML = SC.map(([id, n, c, a, z]) => `<div class="blk ${c}" style="left:calc(${pc(a)} + var(--stroke));width:calc(${pc(z - a)} - var(--stroke-2))"><span class="lbl lbl-1">${id} ${n}</span> <span class="t3 name lbl">${c}</span></div>`).join('');
+const CH = [[0,8,'Gm'],[8,16,'E♭maj7'],[16,24,'Gm'],[24,28,'Cm'],[28,32,'E♭'],[32,36,'D7'],[36,43,'Gm9'],[43,50,'B♭'],[50,57,'F'],[57,64,'E♭'],[64,88,'↻ per fruit'],[88,112,'Gsus4']];
+$('#L-chord').innerHTML = CH.map(([a, z, n]) => `<div class="cc" style="left:${pc(a)};width:${pc(z - a)}">${n}</div>`).join('');
+const CO = ['16 bars', 'tips ≥ 60', 'loops ≥ 12', 'fruit + 24', 'fade · end'];
+$('#L-cond').innerHTML = SC.map(([, , , a], i) => `<span class="cond lbl" style="left:calc(${pc(a)} + 8px)">→ ${CO[i]}</span>`).join('');
+$('#arr').insertAdjacentHTML('beforeend', `<div class="ph" style="left:calc(var(--col) + var(--s2) + (100% - var(--col) - var(--s2)) * ${37.2 / BARS})"></div>`);
+
+// 4 연결
+const OUTS = ['Tips','Flow','Loops','Spikes','Mat','Fruit','Clash'], INS = ['Cutoff','Tempo','Density','Reverb','Pitch','Swing','Chord'];
+const CAB = [[1,0,'+0.42'],[1,1,'+0.20'],[0,2,'+0.65'],[2,3,'−0.30'],[3,4,'+0.15'],[5,6,'step']];
+const used = new Set(CAB.flatMap(([o, i]) => ['o' + o, 'i' + i]));
+const jack = (n, k, i) => `<div class="jack${used.has(k + i) ? ' used' : ''}">${k === 'o' ? `<span class="lbl">${n}</span>` : ''}<svg width="20" height="20" viewBox="-10 -10 20 20"><circle class="o" r="9"/><circle class="i" r="4"/></svg>${k === 'i' ? `<span class="lbl">${n}</span>` : ''}</div>`;
+$('#outs').innerHTML = OUTS.map((n, i) => jack(n, 'o', i)).join(''); $('#ins').innerHTML = INS.map((n, i) => jack(n, 'i', i)).join('');
+$('#amts').innerHTML = CAB.map(([o, i, v], k) => `<button class="${k === 0 ? 'is-sel' : ''}"><span class="name">${OUTS[o]} → ${INS[i]}</span><span>${v}</span></button>`).join('');
+function drawCables() {
+  const bay = $('#bay'), r = bay.getBoundingClientRect(), sel = $$('#amts button').findIndex(b => b.classList.contains('is-sel'));
+  const c = el => { const q = $('svg', el).getBoundingClientRect(); return [q.left + 10 - r.left, q.top + 10 - r.top]; };
+  const o = $$('#outs .jack'), i = $$('#ins .jack');
+  $('#cables').innerHTML = CAB.map(([a, b], k) => { const [x0, y0] = c(o[a]), [x1, y1] = c(i[b]);
+    return `<g class="${k === sel ? 'is-sel' : ''}"><path d="M${x0} ${y0} C${x0} ${y0 + 80}, ${x1} ${y1 - 40}, ${x1} ${y1}"/><circle cx="${x0}" cy="${y0}" r="4"/><circle cx="${x1}" cy="${y1}" r="4"/></g>`; }).join('');
+}
+
+$$('[data-enc]').forEach(enc);
+
+// 무대 자리 표시 (색은 토큰에서)
+function drawStage() {
+  const cv = $('#cv'), r = cv.getBoundingClientRect(), g = cv.getContext('2d');
+  cv.width = r.width * 2; cv.height = r.height * 2; g.setTransform(2, 0, 0, 2, 0, 0);
+  g.fillStyle = css('--bg-stage'); g.fillRect(0, 0, r.width, r.height);
+  g.strokeStyle = css('--text-1');
+  let seed = 29; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const grow = (x, y, a, w, d) => { if (d > 10 || w < .3) return; const L = 18 + rnd() * 26, nx = x + Math.cos(a) * L, ny = y + Math.sin(a) * L;
+    g.globalAlpha = Math.min(.85, .15 + w * .28); g.lineWidth = w; g.beginPath(); g.moveTo(x, y); g.lineTo(nx, ny); g.stroke();
+    grow(nx, ny, a + (rnd() - .5) * .5, w * .84, d + 1); if (rnd() < .5) grow(nx, ny, a + (rnd() < .5 ? -1 : 1) * (.45 + rnd() * .6), w * .58, d + 1); };
+  for (let k = 0; k < 5; k++) { const cx = r.width * (.1 + .2 * k + .06 * rnd()), cy = r.height * (.3 + .4 * rnd()); for (let j = 0; j < 7; j++) grow(cx, cy, rnd() * 6.28, 2.4, 0); }
+  g.globalAlpha = 1;
+}
+addEventListener('resize', () => { drawStage(); if ($('#p-patch').classList.contains('is-on')) drawCables(); });
+open(new URLSearchParams(location.search).get('p'));
+</script>
+</body>
+</html>

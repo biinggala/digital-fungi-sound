@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fungi Design System</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../src/ds.css">
+<style>
+  body { padding: var(--s8) var(--s8) calc(var(--s8) * 2); }
+  .doc { max-width: calc(var(--u) * 48); }
+  .doc > section { display: grid; grid-template-columns: calc(var(--col) * 3) 1fr; gap: var(--s8); padding: var(--s6) 0; border-top: var(--stroke) solid var(--line); }
+  .doc h2 { margin: 0; font-weight: 400; }
+  .doc p, .doc li { color: var(--text-2); margin: 0 0 var(--s2); max-width: calc(var(--u) * 28); }
+  .doc ul { margin: 0; padding-left: var(--s4); }
+  .doc b { color: var(--text-1); font-weight: 400; }
+  .row { display: flex; flex-wrap: wrap; gap: var(--s4); align-items: flex-end; margin-bottom: var(--s4); }
+  .chip { width: calc(var(--col) + var(--s4)); }
+  .chip i { display: block; height: calc(var(--u) * 2); border: var(--stroke) solid var(--line); margin-bottom: var(--s1); }
+  .spec { display: grid; grid-template-columns: calc(var(--col) * 2) 1fr; gap: var(--s1) var(--s4); align-items: center; }
+  .bar { height: var(--s2); background: var(--fill-2); }
+  .demo { padding: var(--s4); background: var(--bg-panel); border: var(--stroke) solid var(--line); display: inline-flex; gap: var(--s4); align-items: flex-end; flex-wrap: wrap; }
+  .demo .mod { border: var(--stroke) solid var(--line); height: calc(var(--u) * 8); }
+  .note { margin-top: var(--s2); }
+</style>
+</head>
+<body>
+<div class="doc">
+  <div class="big name">Digital Fungi — Design system</div>
+  <p class="note">화면은 <b>ds.css</b>의 토큰과 클래스만 쓴다. 화면 파일에 색 값이 있거나 px가 4의 배수가 아니면 <b>lint-ds.sh</b>가 실패한다.</p>
+
+  <section>
+    <div><h2 class="lbl lbl-1">01 Neutral</h2></div>
+    <div>
+      <div class="row" id="ramp"></div>
+      <p>회색은 이 11칸뿐이다. 화면에서는 단계 번호가 아니라 <b>의미 토큰</b>으로 쓴다.</p>
+      <div class="spec" id="sem"></div>
+    </div>
+  </section>
+
+  <section>
+    <div><h2 class="lbl lbl-1">02 Signal</h2></div>
+    <div>
+      <div class="row"><div class="chip"><i style="background:var(--live)"></i><span class="lbl">--live</span></div></div>
+      <p>신호색은 <b>하나</b>이고 뜻도 하나: <b>지금 살아 움직이는 것</b>. 재생 위치, 현재 스텝, 녹음 중, 균사체가 움직이는 값.</p>
+      <p>선택, 경고, 강조, 장식에는 쓰지 않는다.</p>
+    </div>
+  </section>
+
+  <section>
+    <div><h2 class="lbl lbl-1">03 Category</h2></div>
+    <div>
+      <div class="row" id="cats"></div>
+      <p>범주색은 <b>소리 스타일</b>을 가리킬 때만 쓴다. 8 px 견본, 장면 블록 윗선(2 px). 면을 칠하지 않는다.</p>
+    </div>
+  </section>
+
+  <section>
+    <div><h2 class="lbl lbl-1">04 Type</h2></div>
+    <div>
+      <div class="spec">
+        <span class="lbl">10 · label</span><span class="lbl">Cutoff · Tracks · Bar</span>
+        <span class="lbl">12 · value</span><span class="val">1.4k · G min7 · 038.2</span>
+        <span class="lbl">12 · name</span><span class="name">Food found · Acid</span>
+        <span class="lbl">16 · readout</span><span class="big">Acid</span>
+      </div>
+      <p class="note">한 서체, 세 크기. 인터페이스 낱말(라벨 · 버튼 · 이름)은 <b>대문자</b>, 자료(숫자 · 음 이름 · 화음 기호)는 <b>원래 글자</b>. 16은 판마다 하나까지. 그리스 문자는 <span class="keep">μ ε</span> 그대로 (<b>.keep</b>).</p>
+    </div>
+  </section>
+
+  <section>
+    <div><h2 class="lbl lbl-1">05 Space · Units</h2></div>
+    <div>
+      <div class="spec" id="space"></div>
+      <p class="note">조작 요소의 높이는 모두 <b>1u = 24</b>. 독 2u, 판 12u. 모듈 폭은 열 수로만 정한다: <b>n·64 + (n−1)·8 + 32</b> (.c2 – .c6) 또는 남는 폭 (.grow).</p>
+    </div>
+  </section>
+
+  <section>
+    <div><h2 class="lbl lbl-1">06 Selection</h2></div>
+    <div>
+      <div class="row">
+        <span class="seg"><button class="is-sel">◉ Spore</button><button>▦ Food</button><button>ϟ Stim</button></span>
+        <div class="list" style="width:calc(var(--col) * 3)"><button class="is-sel" style="grid-template-columns:1fr auto"><span class="name">Hold</span><span class="lbl">manual</span></button><button style="grid-template-columns:1fr auto"><span class="name">Network</span><span class="lbl">loops</span></button></div>
+        <div class="dock" style="border:var(--stroke) solid var(--line)"><div class="tab is-sel"><span class="lbl">1</span><span class="lbl">Chord</span><span class="val">G min7</span></div><div class="tab"><span class="lbl lbl-3">2</span><span class="lbl">Sound</span></div></div>
+      </div>
+      <p>선택은 어디서나 <b>반전</b> 하나: 세그먼트, 목록, 독 탭, 근음 링, 건반 구성음. 밑줄 · 테두리 · 색 글자로 선택을 나타내지 않는다.</p>
+    </div>
+  </section>
+
+  <section>
+    <div><h2 class="lbl lbl-1">07 Button</h2></div>
+    <div>
+      <div class="row"><button class="btn">↺ Reset</button><button class="btn">♪ Sound on</button><button class="btn is-rec">● Rec</button><button class="btn" disabled>Midi</button></div>
+      <p>버튼 글자는 <b>누르면 할 일</b>이다 (소리가 나는 중이면 SOUND OFF, 꺼져 있으면 SOUND ON). 쓸 수 없는 것은 흐리게(.is-off · :disabled). 녹음 중만 신호색.</p>
+    </div>
+  </section>
+
+  <section>
+    <div><h2 class="lbl lbl-1">08 Readout · Encoder</h2></div>
+    <div>
+      <div class="demo">
+        <div data-enc="Cutoff|1.4k|.62"></div><div data-enc="Cutoff|1.4k|.62|live"></div><div data-enc="Compete μ|1.5|.4"></div>
+        <span class="ro"><span class="v">0.79</span><span class="lbl">Delay</span></span>
+        <span class="ro left"><span class="v is-live">038.2</span><span class="lbl">Bar</span></span>
+      </div>
+      <p class="note">값은 늘 <b>위에 값, 아래에 라벨</b> (.ro). 엔코더는 그 위에 270° 호를 얹은 것. 균사체 케이블이 움직이고 있는 값은 호와 숫자가 신호색 (.is-live).</p>
+    </div>
+  </section>
+
+  <section>
+    <div><h2 class="lbl lbl-1">09 Module</h2></div>
+    <div>
+      <div class="panel" style="height:auto;border:var(--stroke) solid var(--line)">
+        <section class="mod c4" style="height:calc(var(--u) * 8)">
+          <div class="mod-hd"><span class="lbl">Source</span><span class="lbl lbl-3">02 food found</span></div>
+          <div class="mod-body"><div style="display:flex;align-items:center;gap:var(--s2)"><span class="sw aphex"></span><span class="big name">Acid</span></div></div>
+          <div class="mod-foot encs"><div data-enc="Tune|0|.5"></div><div data-enc="Octave|−1|.35"></div><div data-enc="Cutoff|1.4k|.62|live"></div><div data-enc="Reso|0.8|.8"></div></div>
+        </section>
+        <section class="mod c3" style="height:calc(var(--u) * 8)">
+          <div class="mod-hd"><span class="lbl">Tracks</span></div>
+          <div class="mod-body"><div class="list"><button class="is-sel" style="grid-template-columns:1fr var(--u)"><span class="name">Food found</span><span class="meter"><b style="width:80%"></b></span></button><button style="grid-template-columns:1fr var(--u)"><span class="name">Spike</span><span class="meter"><b style="width:50%"></b></span></button></div></div>
+        </section>
+      </div>
+      <p class="note">모듈 = <b>머리</b>(이름 왼쪽 · 보조 정보 오른쪽, 1u) + <b>몸</b> + <b>발</b>. 엔코더 줄은 늘 발에 둬서 판 전체의 엔코더가 한 높이에 선다. 모듈 사이는 1 px 선, 모서리 0.</p>
+    </div>
+  </section>
+
+  <section>
+    <div><h2 class="lbl lbl-1">10 Mobile</h2></div>
+    <div>
+      <p>≤ 600 px에서는 같은 토큰을 쓰고 배치만 바꾼다.</p>
+      <ul>
+        <li><b>u = 40</b> (손가락 폭). 높이가 u인 버튼 · 세그먼트 · 목록 줄이 모두 함께 커진다</li>
+        <li>모듈은 <b>세로로 쌓이고</b> 폭은 100 %, 사이는 가로선. 판은 화면 절반 높이의 바닥 시트이고 안에서 스크롤</li>
+        <li>엔코더는 <b>한 줄에 4개</b>. 남는 것은 왼쪽 열에 맞춰 다음 줄</li>
+        <li>독은 5칸 균등 탭: 번호 + 이름만. 값 · 통계는 숨긴다</li>
+        <li>글자 버튼은 기호만 (<b>.txt</b> 숨김, <b>.ico-m</b> 보임). 도구 · 보기는 엄지가 닿는 무대 아래로</li>
+        <li>폭이 시간인 것(곡 배치)은 줄이지 않고 <b>가로 스크롤</b></li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div><h2 class="lbl lbl-1">11 Don't</h2></div>
+    <div>
+      <ul>
+        <li>블러, 그라디언트, 그림자, 빛 번짐, 입체 효과</li>
+        <li>2 px보다 큰 모서리, 둥근 카드</li>
+        <li>이모지, 장식용 아이콘</li>
+        <li>신호색을 선택 · 강조 · 장식에 쓰기, 범주색으로 면 칠하기</li>
+        <li>토큰에 없는 회색, 4의 배수가 아닌 간격</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script>
+const $$ = s => [...document.querySelectorAll(s)];
+const v = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+document.getElementById('ramp').innerHTML = Array.from({ length: 11 }, (_, i) => `<div class="chip"><i style="background:var(--n${i})"></i><span class="lbl">n${i}</span><br><span class="lbl lbl-3">${v('--n' + i)}</span></div>`).join('');
+const SEM = [['--bg-stage','무대 · 그래프'],['--bg-page','페이지'],['--bg-panel','판'],['--fill','빈 칸'],['--line','구분선'],['--line-ctl','꺼진 컨트롤'],['--line-strong','버튼 테두리'],
+  ['--text-1','값 · 이름'],['--text-2','라벨'],['--text-3','보조 · 비활성'],['--text-em','강조 (드물게)'],['--sel-bg','선택 바탕'],['--fill-2','켜짐 (미터 · 구성음)']];
+document.getElementById('sem').innerHTML = SEM.map(([t, d]) => `<span class="lbl lbl-1 keep">${t}</span><span><span class="sw" style="background:var(${t});border:var(--stroke) solid var(--line)"></span> <span class="t2">${d}</span></span>`).join('');
+document.getElementById('cats').innerHTML = ['lab','eno','moss','green','aphex','ra'].map(c => `<div class="chip"><i style="background:var(--c-${c})"></i><span class="lbl">${c}</span></div>`).join('');
+const SP = [['s1','--s1'],['s2','--s2'],['s3','--s3'],['s4','--s4'],['s6','--s6'],['s8','--s8'],['u','--u'],['col','--col']];
+document.getElementById('space').innerHTML = SP.map(([n, t]) => `<span class="lbl">${n} · ${v(t)}</span><span><i class="bar" style="display:block;width:var(${t})"></i></span>`).join('');
+
+// 엔코더 (song-mode-v4와 같은 그리기)
+const A0 = Math.PI * .75, SPAN = Math.PI * 1.5, R = 14;
+const arc = (a0, a1) => { const p = a => `${(Math.cos(a) * R).toFixed(2)} ${(Math.sin(a) * R).toFixed(2)}`; return `M${p(a0)} A${R} ${R} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${p(a1)}`; };
+$$('[data-enc]').forEach(el => { const [label, val, f, live] = el.dataset.enc.split('|'), a = A0 + SPAN * +f;
+  el.className = 'enc ro' + (live ? ' is-live' : '');
+  el.innerHTML = `<svg width="32" height="32" viewBox="-16 -16 32 32"><path class="trk" stroke-width="2" fill="none" d="${arc(A0, A0 + SPAN)}"/><path class="arc" stroke-width="2" fill="none" d="${arc(A0, a)}"/><line class="ndl" stroke-width="2" x1="${Math.cos(a) * 6}" y1="${Math.sin(a) * 6}" x2="${Math.cos(a) * R}" y2="${Math.sin(a) * R}"/></svg><span class="v">${val}</span><span class="lbl">${label.replace(/([με])/g, '<span class="keep">$1</span>')}</span>`; });
+</script>
+</body>
+</html>

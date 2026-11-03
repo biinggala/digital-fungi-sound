@@ -3,7 +3,7 @@
 // 점8분 · 4분 덥 에코와 어두운 화음 잔향(Basic Channel). 킥은 '모터'다: 파면이 어딘가를 지나가는 동안만 매 박에 뛰고, 파동이 끝나면 브레이크다운.
 // 재진입처럼 스스로 도는 파동이 생기면 그루브가 끝나지 않는다
 defineStyle('techno', {
-  color: '#5b7be6', title: { en: '90s Techno · Detroit / Berlin', ko: '90년대 테크노 (디트로이트 · 베를린)' },
+  color: 'var(--c-techno)', title: { en: '90s Techno · Detroit / Berlin', ko: '90년대 테크노 (디트로이트 · 베를린)' },
   name: '90년대 테크노', short: 'Techno', scale: 'aeolian', tonic: 57, room: 'short', reverb: 0.35, echo: 0.45, echoTimes: [0.346, 0.462],
   drone: { level: 0.75, saw: 0.6, sub: 1.3, bright: 0.45, wobble: 0 },
   pad: { level: 0.75, saw: 0.7, bright: 0.5, fade: 2, swell: 1.2, wobble: 3, wobbleRate: 0.25 },
@@ -22,15 +22,22 @@ defineStyle('techno', {
   },
   // 악기는 (시각, 주파수, 세기, 출력, 옵션)을 받아 소리를 걸고, 가장 늦게 끝나는 소스를 돌려준다. this는 MyceliumSound
   instruments: {
-    // 화음 스탭: 신스의 코드 메모리처럼 같은 마이너 9화음(0 3 7 10 14)을 근음만 바꿔 평행 이동. 톱니파 → 금방 닫히는 저역 필터
+    // 화음 스탭: 신스의 코드 메모리처럼 같은 마이너 9화음(0 3 7 10 14)을 근음만 바꿔 평행 이동. 톱니파 → 금방 닫히는 저역 필터.
+    // 화음 모드에서는 지금 화음의 구성음을 f 근처 옥타브에 쌓는다 (진행을 따라간다)
     stab(t, f, amp, out) {
       const end = t + 0.45, lp = this.filter('lowpass', 3200, 2.5), sum = this.ctx.createGain();
       lp.frequency.setValueAtTime(3200, t);
       lp.frequency.exponentialRampToValueAtTime(500, t + 0.18);
       sum.gain.value = 0.3;
+      let root = f, ivs = [0, 3, 7, 10, 14];
+      if (this.chordOn) {
+        const m = 69 + 12 * Math.log2(f / 440);
+        root = mtof(this.base + 12 * Math.round((m - this.base) / 12));
+        ivs = CHORD[this.current[1]];
+      }
       let last;
-      for (const st of [0, 3, 7, 10, 14]) {
-        last = this.osc('sawtooth', f * Math.pow(2, st / 12), t, end);
+      for (const st of ivs) {
+        last = this.osc('sawtooth', root * Math.pow(2, st / 12), t, end);
         last.detune.value = (Math.random() - 0.5) * 12;
         last.connect(sum);
       }

@@ -1,0 +1,225 @@
+/* =====================================================================
+   Digital Fungi — design system
+   규칙은 design-system.html에 정리. 화면 파일은 여기 있는 토큰과 클래스만 쓴다
+   (화면 파일 안에 색 값 · 임의 px 금지 — lint-ds.sh가 검사)
+   ===================================================================== */
+
+:root {
+  /* ---- 1. 중립 단계: 11칸. 이 밖의 회색은 없다 ---- */
+  --n0: #0a0a0a;   /* 무대 · 그래프 바닥 */
+  --n1: #0e0e0e;   /* 페이지 */
+  --n2: #121212;   /* 판 */
+  --n3: #191919;   /* 채움 (비어 있는 칸) */
+  --n4: #242424;   /* 구분선 */
+  --n5: #333333;   /* 꺼진 컨트롤 선 · 엔코더 궤도 */
+  --n6: #565656;   /* 3단 글자 (비활성 · 보조) */
+  --n7: #7c7c7c;   /* 2단 글자 (라벨) */
+  --n8: #b4b4b4;   /* 강한 선 · 2단 채움 */
+  --n9: #e0e0e0;   /* 1단 글자 · 선택 채움 */
+  --n10: #ffffff;  /* 강조 (페이지에 한두 곳) */
+
+  /* ---- 2. 의미 토큰: 화면은 이것만 쓴다 ---- */
+  --bg-stage: var(--n0);
+  --bg-page: var(--n1);
+  --bg-panel: var(--n2);
+  --fill: var(--n3);
+  --line: var(--n4);
+  --line-ctl: var(--n5);
+  --line-strong: var(--n8);
+  --text-1: var(--n9);
+  --text-2: var(--n7);
+  --text-3: var(--n6);
+  --text-em: var(--n10);
+  --sel-bg: var(--n9);      /* 선택 = 반전. 모든 선택 컨트롤 공통 */
+  --sel-fg: var(--n1);
+  --fill-2: var(--n8);      /* 켜졌지만 선택은 아닌 것 (구성음, 미터) */
+
+  /* ---- 3. 신호색: 단 하나. 뜻 = "지금 살아 움직이는 것" ----
+     재생 위치 · 현재 스텝 · 녹음 중 · 균사체가 움직이고 있는 값. 다른 데 쓰지 않는다 */
+  --live: #e8553f;
+
+  /* ---- 4. 범주색: 소리 스타일을 가리킬 때만 (견본 · 장면 윗선 · 악기 견본) ---- */
+  --c-lab: #c9b48a;
+  --c-eno: #78b3c0;
+  --c-moss: #5f8f62;
+  --c-green: #b3c45a;
+  --c-aphex: #d9654f;   /* 신호색과 구분되게 한 단계 누른 빨강 */
+  --c-techno: #5b7be6;
+  --c-ra: #b07ad8;
+
+  /* ---- 5. 글자: 한 서체, 세 크기 ---- */
+  --font: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --t-s: 10px;  --t-s-track: .12em;   /* 라벨: 늘 대문자 */
+  --t-m: 12px;  --t-m-track: .04em;   /* 값 · 이름 */
+  --t-l: 16px;  --t-l-track: .06em;   /* 판마다 하나뿐인 주 표시 */
+  --lh: 16px;
+
+  /* ---- 6. 간격: 4의 배수만 ---- */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s6: 24px; --s8: 32px;
+
+  /* ---- 7. 크기 단위 ---- */
+  --u: 24px;               /* 모든 조작 요소의 높이. 독 = 2u, 판 = 12u */
+  --col: 64px;             /* 열 하나 = 엔코더 하나의 폭 */
+  --gut: 8px;              /* 열 사이 */
+  --pad: 16px;             /* 모듈 안 여백 */
+  --r: 2px;                /* 조작 요소 모서리. 모듈 · 틀은 0 */
+  --stroke: 1px;
+  --stroke-2: 2px;         /* 엔코더 호 · 케이블 · 선택 표시 */
+}
+
+/* ---------- 기본 ---------- */
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg-page); color: var(--text-1);
+  font: var(--t-m)/var(--lh) var(--font); letter-spacing: var(--t-m-track); font-variant-numeric: tabular-nums; }
+button { font: inherit; letter-spacing: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+
+/* ---------- 글자 ----------
+   규칙: 인터페이스 낱말(라벨 · 버튼 · 이름)은 대문자, 자료(숫자 · 음 이름 · 화음 기호)는 원래 글자 그대로 */
+.lbl { font-size: var(--t-s); letter-spacing: var(--t-s-track); text-transform: uppercase; color: var(--text-2); }
+.lbl-1 { color: var(--text-1); }
+.lbl-3 { color: var(--text-3); }
+.name { text-transform: uppercase; letter-spacing: .06em; }
+.val { color: var(--text-1); }
+.val-em { color: var(--text-em); }
+.big { font-size: var(--t-l); letter-spacing: var(--t-l-track); color: var(--text-em); }
+.t3 { color: var(--text-3); }
+.t2 { color: var(--text-2); }
+.keep { text-transform: none; }   /* μ · ε 같은 그리스 문자는 대문자로 바꾸지 않는다 */
+.is-live { color: var(--live) !important; }
+
+/* ---------- 버튼: 동작 하나 ---------- */
+.btn { height: var(--u); padding: 0 var(--s2); border: var(--stroke) solid var(--line-strong); border-radius: var(--r);
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--s2); white-space: nowrap;
+  text-transform: uppercase; letter-spacing: .06em; color: var(--text-1); }
+.btn:hover { border-color: var(--text-em); color: var(--text-em); }
+.btn.is-off { border-color: var(--line-ctl); color: var(--text-2); }
+.btn:disabled { opacity: .35; cursor: default; }
+.btn.is-rec { border-color: var(--live); color: var(--live); }
+
+/* ---------- 선택 컨트롤: 세그먼트 · 목록. 선택 = 반전, 이것 하나 ---------- */
+.seg { display: inline-flex; height: var(--u); border: var(--stroke) solid var(--line-ctl); border-radius: var(--r); overflow: hidden; }
+.seg > button { padding: 0 var(--s2); color: var(--text-2); text-transform: uppercase; letter-spacing: .06em; white-space: nowrap;
+  border-right: var(--stroke) solid var(--line-ctl); display: inline-flex; align-items: center; gap: var(--s1); }
+.seg > button:last-child { border-right: 0; }
+.seg > button:hover { color: var(--text-1); }
+.seg > button.is-sel { background: var(--sel-bg); color: var(--sel-fg); }
+.seg.fill { display: flex; } .seg.fill > button { flex: 1; justify-content: center; }
+
+.list { display: flex; flex-direction: column; }
+.list.cols-2 { display: grid; grid-template-columns: 1fr 1fr; column-gap: var(--s1); }
+.list > button { height: var(--u); padding: 0 var(--s2); border-radius: var(--r); color: var(--text-2);
+  display: grid; align-items: center; text-align: left; column-gap: var(--s2); white-space: nowrap; }
+.list > button > * { overflow: hidden; text-overflow: ellipsis; }
+.list > button:hover { color: var(--text-1); background: var(--fill); }
+.list > button.is-sel { background: var(--sel-bg); color: var(--sel-fg); }
+.list > button.is-sel .t2, .list > button.is-sel .t3, .list > button.is-sel .lbl { color: var(--n6); }
+.list > button.is-sel .meter { --m-track: var(--n8); --m-fill: var(--n1); }
+
+/* ---------- 읽기값: 값 위 · 라벨 아래. 엔코더와 따로 놓인 값 모두 같은 모양 ---------- */
+.ro { display: inline-flex; flex-direction: column; align-items: center; width: var(--col); }
+.ro.left { align-items: flex-start; width: auto; }
+.ro > .v { color: var(--text-1); }
+.ro > .lbl { white-space: nowrap; }
+/* 엔코더 라벨은 열 폭(64)을 넘지 않는다: 길면 두 줄로 */
+.enc.ro > .lbl { white-space: normal; text-align: center; max-width: var(--col); line-height: var(--s3); min-height: var(--s6); }
+
+/* ---------- 엔코더 = 호 + 읽기값 ---------- */
+.enc { cursor: ns-resize; user-select: none; touch-action: none; }
+.enc svg { display: block; margin-bottom: var(--s1); }
+.enc .trk { stroke: var(--line-ctl); }
+.enc .arc { stroke: var(--text-1); }
+.enc .ndl { stroke: var(--text-em); }
+.enc.is-live .arc, .enc.is-live .ndl { stroke: var(--live); }
+.enc.is-live .v { color: var(--live); }
+.encs { display: grid; grid-auto-flow: column; grid-auto-columns: var(--col); gap: var(--s3) var(--gut); }
+.encs.rows-2 { grid-auto-flow: row; }
+
+/* ---------- 미터: 가로 막대 ---------- */
+.meter { --m-track: var(--line-ctl); --m-fill: var(--fill-2); display: block; height: var(--s1); background: var(--m-track); position: relative; }
+.meter > b { position: absolute; inset: 0 auto 0 0; background: var(--m-fill); }
+
+/* ---------- 견본: 범주색 ---------- */
+.sw { display: inline-block; width: var(--s2); height: var(--s2); border-radius: 1px; flex: none; }
+.sw.lab { background: var(--c-lab); } .sw.eno { background: var(--c-eno); } .sw.moss { background: var(--c-moss); }
+.sw.green { background: var(--c-green); } .sw.aphex { background: var(--c-aphex); } .sw.ra { background: var(--c-ra); }
+
+/* ---------- 틀: 그래프 · 패드 ---------- */
+.frame { border: var(--stroke) solid var(--line); background: var(--bg-stage); display: block; position: relative; }
+.frame .grid-line { stroke: var(--fill); }
+.frame .plot { stroke: var(--text-1); fill: none; }
+.frame .handle { fill: var(--bg-stage); stroke: var(--text-em); }
+
+/* ---------- 판 · 모듈 ----------
+   판은 12u (288px). 모듈 = 머리(1u) + 몸 + 발(엔코더 줄은 늘 바닥에 붙인다) */
+.panel { height: calc(var(--u) * 12); background: var(--bg-panel); border-top: var(--stroke) solid var(--line); display: flex; }
+.panel:not(.is-open) { display: none; }   /* 판은 열 때만 */
+.mod { display: flex; flex-direction: column; padding: var(--s3) var(--pad) var(--pad); border-right: var(--stroke) solid var(--line); min-width: 0; flex: none; }
+.mod:last-child { border-right: 0; }
+.mod.grow { flex: 1; }
+/* 폭은 열 수로만: n열 = n·64 + (n−1)·8 + 2·16 */
+.mod.c2 { width: calc(2 * var(--col) + 1 * var(--gut) + 2 * var(--pad)); }
+.mod.c3 { width: calc(3 * var(--col) + 2 * var(--gut) + 2 * var(--pad)); }
+.mod.c4 { width: calc(4 * var(--col) + 3 * var(--gut) + 2 * var(--pad)); }
+.mod.c5 { width: calc(5 * var(--col) + 4 * var(--gut) + 2 * var(--pad)); }
+.mod.c6 { width: calc(6 * var(--col) + 5 * var(--gut) + 2 * var(--pad)); }
+.mod-hd { height: var(--u); display: flex; align-items: center; justify-content: space-between; gap: var(--s4); margin-bottom: var(--s2); white-space: nowrap; }
+.mod-hd > .lbl:first-child { color: var(--text-1); }
+.mod-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.mod-foot { margin-top: var(--s3); }
+
+/* ---------- 머리 줄 ---------- */
+.top { padding: var(--s4) var(--s8) var(--s2); background: var(--bg-page); }
+.top .ttl { color: var(--text-em); text-transform: uppercase; letter-spacing: .1em; }
+.top .row { display: flex; align-items: center; gap: var(--s8); height: var(--u); margin-top: var(--s2); }
+.top .grp { display: flex; align-items: center; gap: var(--s2); white-space: nowrap; }
+.push { margin-left: auto; }
+
+/* ---------- 독: 판 고르는 탭. 2u ---------- */
+.dock { display: flex; height: calc(var(--u) * 2); border-top: var(--stroke) solid var(--line); background: var(--bg-page); }
+.tab { display: flex; align-items: center; gap: var(--s3); padding: 0 var(--s4); border-right: var(--stroke) solid var(--line); white-space: nowrap; cursor: pointer; }
+.tab:first-child { padding-left: var(--s8); }
+.tab:hover { background: var(--fill); }
+.tab.is-sel { background: var(--sel-bg); color: var(--sel-fg); }
+.tab.is-sel .lbl, .tab.is-sel .t3 { color: var(--n6); }
+.tab.is-sel .val { color: var(--sel-fg); }
+.tab.is-sel .meter { --m-track: var(--n8); --m-fill: var(--n1); }
+.dock .stats { margin-left: auto; display: flex; align-items: center; gap: var(--s6); padding-right: var(--s8); }
+
+/* =====================================================================
+   모바일 (≤ 600 px) — 같은 토큰, 다른 배치. 규칙:
+   1. 터치 단위: u = 40 (손가락 최소 폭). 높이가 u인 모든 조작 요소가 함께 커진다
+   2. 모듈은 가로로 늘어서지 않고 세로로 쌓인다. 폭은 늘 100 %, 사이는 가로선
+   3. 판은 바닥 시트: 화면의 절반, 안에서 세로 스크롤
+   4. 독은 5칸 균등 탭. 값 · 통계는 숨기고 번호 + 이름만
+   5. 글자로 된 버튼은 기호만 남긴다 (.txt 숨김, .ico-m 보임)
+   ===================================================================== */
+.ico-m { display: none; }
+@media (max-width: 600px) {
+  :root { --u: 40px; --pad: 16px; }
+  .txt { display: none; }
+  .ico-m { display: inline; }
+  .btn { min-width: var(--u); }
+  .hide-m { display: none !important; }
+
+  .top { padding: var(--s3) var(--s4) var(--s2); }
+  .top .row { gap: var(--s2); }
+
+  .panel { height: 50vh; }
+  .panel > .page { flex-direction: column; overflow-y: auto; overscroll-behavior: contain; }
+  .mod, .mod.c2, .mod.c3, .mod.c4, .mod.c5, .mod.c6, .mod.grow { width: 100%; flex: none; border-right: 0; border-bottom: var(--stroke) solid var(--line); }
+  .mod:empty { display: none; }
+  /* 엔코더는 한 줄에 4개로 고정 (폰 폭 326 px에 4·64 + 3·8이 들어간다). 남는 것은 왼쪽 열에 맞춰 다음 줄 */
+  .encs { grid-auto-flow: row; grid-template-columns: repeat(4, var(--col)) !important; justify-content: space-between; }
+  .ro.left { white-space: nowrap; }
+  .mod-foot.encs { justify-content: space-between; }
+
+  .dock { height: calc(var(--s4) * 3); }
+  .dock .tab { flex: 1; justify-content: center; gap: var(--s1); padding: 0; flex-direction: column; }
+  .dock .tab:first-child { padding-left: 0; }
+  .dock .tab > :not(.lbl) { display: none; }
+  .dock .tab:last-of-type { border-right: 0; }
+  .dock .stats { display: none; }
+}
+
+/* 켜 두는 버튼 (도움말 · 연락처 판이 열려 있음 등): 선택 규칙과 같은 반전 */
+.btn.is-sel { background: var(--sel-bg); color: var(--sel-fg); border-color: var(--sel-bg); }

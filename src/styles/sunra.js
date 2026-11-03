@@ -2,7 +2,7 @@
 // Sun Ra "Adventure-Equation" (Cosmic Tones for Mental Therapy, 1963 녹음): 브루클린 Tip Top 클럽의 Hammond B-3, Clavioline(진공관 단음 건반),
 // 타악기, Tommy Hunter의 리버브. 미니무그(1969~)보다 앞선 시기라 무그는 쓰지 않는다. 악기 소리는 모두 아날로그 녹음 버스(analog)를 지난다
 defineStyle('sunra', {
-  color: '#b07ad8', title: { en: 'Sun Ra · Cosmic Tones (1963)', ko: 'Sun Ra · Cosmic Tones (1963)' },
+  color: 'var(--c-ra)', title: { en: 'Sun Ra · Cosmic Tones (1963)', ko: 'Sun Ra · Cosmic Tones (1963)' },
   name: 'Sun Ra', short: 'Ra', scale: 'chromatic', tonic: 62, room: 'long', reverb: 0.45, echo: 0.25, echoTimes: [0.19, 0.27],
   analog: true,
   drone: { level: 0.6, saw: 0.1, sub: 0.7, bright: 0.7, wobble: 14 },

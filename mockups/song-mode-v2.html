@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Song Mode v2</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#0e0e0e; --fg:#e0e0e0; --strong:#fff; --muted:#7c7c7c; --muted-2:#565656; --muted-3:#2e2e2e;
+    --bar-on:#d0d0d0; --bar-off:#2c2c2c; --red:#e8553f; --eno:#78b3c0; --moss:#5f8f62; --green:#b3c45a; --aphex:#e8553f; --sunra:#b07ad8; --lab:#c9b48a; color-scheme:dark; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:var(--bg); color:var(--fg); font:12px/1.4 'DM Mono', ui-monospace, Menlo, monospace; letter-spacing:.05em; }
+  body { display:flex; flex-direction:column; }
+  button { font:inherit; letter-spacing:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer; }
+  .lbl { color:var(--muted); text-transform:uppercase; }
+  .btn { border:1px solid #bdbdbd; border-radius:3px; padding:1px 6px; text-transform:uppercase; }
+  .opt { color:var(--muted-2); text-transform:uppercase; } .opt.on { color:var(--strong); }
+  .meter { display:inline-flex; gap:2px; vertical-align:middle; } .meter i { width:7px; height:12px; border-radius:1.5px; background:var(--bar-off); } .meter i.on { background:var(--bar-on); }
+
+  header { padding:16px 32px 10px; display:flex; flex-direction:column; gap:10px; }
+  .title { color:var(--strong); text-transform:uppercase; letter-spacing:.1em; }
+  .title small { color:var(--muted-2); font-size:inherit; margin-left:6px; }
+  .byline { color:var(--muted-2); text-transform:uppercase; margin-left:9px; } .byline b { color:var(--muted); font-weight:400; }
+  .line { display:flex; flex-wrap:wrap; gap:9px 30px; align-items:center; }
+  .ctl { display:inline-flex; gap:9px; align-items:center; white-space:nowrap; }
+  .push { margin-left:auto; }
+
+  #stage { position:relative; flex:1; min-height:0; }
+  canvas { position:absolute; inset:0; width:100%; height:100%; }
+
+  /* 열리는 판: 한 번에 하나, 무대 위에 반투명으로 */
+  .sheet { position:absolute; left:32px; right:32px; bottom:12px; background:rgba(12,12,12,.93); border:1px solid #333; border-radius:4px;
+    padding:16px 18px; display:none; backdrop-filter:blur(3px); }
+  .sheet.open { display:block; }
+  .sheet .hd { display:flex; justify-content:space-between; margin-bottom:14px; }
+  .sheet .hd b { font-weight:400; color:var(--strong); text-transform:uppercase; letter-spacing:.1em; }
+  .sheet .hd span { color:var(--muted-2); }
+
+  /* 아래 독: 늘 보이는 한 줄 */
+  #dock { display:flex; align-items:center; gap:28px; padding:10px 32px 16px; border-top:1px solid var(--muted-3); }
+  .dk { display:flex; align-items:center; gap:10px; white-space:nowrap; }
+  .dk.tab { cursor:pointer; padding:4px 0; border-bottom:1px solid transparent; }
+  .dk.tab:hover .lbl { color:var(--fg); }
+  .dk.tab.on { border-bottom-color:var(--strong); } .dk.tab.on .lbl { color:var(--strong); }
+  .chordbig { color:var(--strong); font-size:15px; }
+  .mini-scenes { display:flex; gap:2px; width:340px; height:16px; position:relative; }
+  .mini-scenes i { border-radius:2px; opacity:.85; }
+  .mini-scenes .ph { position:absolute; top:-3px; bottom:-3px; width:1px; background:var(--strong); left:37%; }
+  .scn { color:var(--muted); font-size:11px; text-transform:uppercase; }
+
+  /* 화음 판 */
+  .chord { display:flex; gap:36px; align-items:flex-start; flex-wrap:wrap; }
+  .pads { display:grid; grid-template-columns:repeat(12, 46px); gap:4px; }
+  .pads button, .quals button { border:1px solid var(--muted-3); border-radius:3px; color:var(--fg); }
+  .pads button { height:46px; font-size:14px; } .pads button.rel { border-color:#6a6a6a; }
+  .pads button.on, .quals button.on { background:var(--fg); color:#111; border-color:var(--fg); }
+  .quals { display:flex; gap:4px; margin-top:8px; } .quals button { height:24px; padding:0 9px; color:var(--muted); text-transform:uppercase; font-size:11px; }
+  .mode { display:flex; flex-direction:column; gap:8px; }
+  .xy { width:150px; height:100px; border:1px solid var(--muted-3); border-radius:3px; position:relative;
+    background-image:linear-gradient(var(--muted-3) 1px, transparent 1px), linear-gradient(90deg, var(--muted-3) 1px, transparent 1px); background-size:15px 10px; }
+  .xy i { position:absolute; left:64%; top:32%; width:16px; height:16px; margin:-8px; border-radius:50%; background:var(--fg); }
+
+  /* 곡 판 */
+  .blocks { display:flex; gap:3px; height:38px; } .blk { border-radius:3px; padding:4px 7px; color:#111; font-size:11px; text-transform:uppercase; display:flex; flex-direction:column; justify-content:space-between; }
+  .blk span { color:rgba(0,0,0,.55); font-size:10px; text-transform:none; }
+  .trig { display:flex; gap:3px; margin-top:6px; color:var(--muted); font-size:10px; text-transform:uppercase; } .trig span { padding-left:6px; border-left:1px dashed #555; }
+  .row { display:flex; gap:14px; margin-top:14px; align-items:center; }
+
+  /* 소리 판 */
+  .patch { display:grid; grid-template-columns:110px 130px 80px 150px; gap:6px 18px; align-items:center; }
+  .chip { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--muted-3); border-radius:3px; padding:1px 7px; text-transform:uppercase; }
+  .sw { width:8px; height:8px; border-radius:2px; display:inline-block; }
+  .styles { display:flex; gap:14px; margin-bottom:14px; }
+  .more { color:var(--muted-2); margin-top:12px; }
+</style>
+</head>
+<body>
+<header>
+  <div><span class="title">Digital Fungi<small>♪ sound</small></span><span class="byline">by <b>Heegun Choi</b></span></div>
+  <div class="line">
+    <span class="ctl"><button class="btn">❚❚ Pause</button><button class="btn">↺ Reset</button><button class="btn">● Rec</button></span>
+    <span class="ctl"><span class="lbl">Tool</span><button class="opt on">◉ Spore</button><button class="opt">▦ Food</button><button class="opt">ϟ Stim</button><button class="opt">⌖ Probe</button></span>
+    <span class="ctl"><span class="lbl">View</span><button class="opt on">Colony</button><button class="opt">Flow</button></span>
+    <span class="ctl push"><button class="btn">♪ Sound on</button><button class="opt">Help</button><button class="btn">한</button></span>
+  </div>
+</header>
+
+<div id="stage">
+  <canvas id="c"></canvas>
+
+  <div class="sheet" id="sh-chord">
+    <div class="hd"><b>Chord · Space</b><span>균사체가 이 화음 안에서만 음을 고른다 · esc 닫기</span></div>
+    <div class="chord">
+      <div>
+        <div class="pads" id="pads"></div>
+        <div class="quals" id="quals"><button>maj</button><button class="on">min</button><button>7</button><button>maj7</button><button>m7</button><button>sus4</button><button>add9</button><button>m9</button><button>dim</button><button>quartal</button></div>
+      </div>
+      <div class="mode"><span class="lbl">화음은</span><button class="opt on">◉ 내가 고정</button><button class="opt">○ 균사체가 바꿈</button><button class="opt">○ 곡 진행 따라</button></div>
+      <div><div class="lbl" style="margin-bottom:6px">Space</div><div class="xy"><i></i></div></div>
+    </div>
+  </div>
+
+  <div class="sheet" id="sh-sound">
+    <div class="hd"><b>Sound</b><span>스타일 = 아래 표를 한 번에 채우는 프리셋</span></div>
+    <div class="styles"><span class="lbl">Style</span><button class="opt">Lab</button><button class="opt">Eno</button><button class="opt">Moss</button><button class="opt">Green</button><button class="opt on">Aphex</button><button class="opt">Ra</button><span class="lbl" style="margin-left:20px">Vol</span><span class="meter"><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i></i><i></i><i></i></span></div>
+    <div class="patch">
+      <span class="lbl">Growth</span><span class="chip"><i class="sw" style="background:var(--aphex)"></i>Hat</span><span>1/16</span><span class="meter"><i class=on></i><i class=on></i><i class=on></i><i></i><i></i></span>
+      <span class="lbl">Food found</span><span class="chip"><i class="sw" style="background:var(--aphex)"></i>Acid</span><span>1/16</span><span class="meter"><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i></i></span>
+      <span class="lbl">Spike</span><span class="chip"><i class="sw" style="background:var(--aphex)"></i>Snare</span><span>1/16</span><span class="meter"><i class=on></i><i class=on></i><i></i><i></i><i></i></span>
+      <span class="lbl">Mushroom</span><span class="chip"><i class="sw" style="background:var(--eno)"></i>E-piano</span><span>free</span><span class="meter"><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i class=on></i></span>
+    </div>
+    <div class="more">+ 드론 · 패드 · 전극 · 공간 … 4개 더 &nbsp;·&nbsp; 고급: 모듈레이션 행렬 ▸</div>
+  </div>
+
+  <div class="sheet" id="sh-song">
+    <div class="hd"><b>Song</b><span>장면 = 지금 설정 스냅샷 · 넘어가는 조건은 마디 또는 균사체 상태</span></div>
+    <div class="blocks">
+      <div class="blk" style="flex:16;background:var(--eno)">Spore<span>Gm · 16 bars</span></div>
+      <div class="blk" style="flex:20;background:var(--green)">Explore<span>Gm → E♭maj7</span></div>
+      <div class="blk" style="flex:28;background:var(--aphex)">Network<span>Gm Cm E♭ D7</span></div>
+      <div class="blk" style="flex:24;background:var(--sunra)">Fruit<span>버섯마다 다음 화음</span></div>
+      <div class="blk" style="flex:24;background:var(--moss)">Decay<span>Gsus4</span></div>
+    </div>
+    <div class="trig"><span style="flex:16">16 bars</span><span style="flex:20">tips ≥ 60</span><span style="flex:28">loops ≥ 12</span><span style="flex:24">first mushroom +24</span><span style="flex:24">fade → end</span></div>
+    <div class="row"><button class="btn">+ 지금을 장면으로</button><button class="opt on">▶ Play song</button><span style="flex:1"></span><span class="lbl">Export</span><button class="btn">WAV</button><button class="btn">MIDI</button><button class="btn">Link</button></div>
+  </div>
+
+  <div class="sheet" id="sh-sim">
+    <div class="hd"><b>Growth · Electric · Fruit</b><span>지금 위쪽에 펼쳐져 있는 시뮬레이션 조절이 여기로 들어온다</span></div>
+    <div class="lbl">Speed · Branch · Chemo · Avoid · Adapt · Compete μ · Spont · Recovery ε · Loop cond · Spike boost · Mat R · Mat D …</div>
+  </div>
+</div>
+
+<div id="dock">
+  <div class="dk tab" data-s="chord"><span class="lbl">Chord</span><span class="chordbig">G min</span></div>
+  <div class="dk tab" data-s="song"><span class="lbl">Song</span><div class="mini-scenes"><i style="flex:16;background:var(--eno)"></i><i style="flex:20;background:var(--green)"></i><i style="flex:28;background:var(--aphex)"></i><i style="flex:24;background:var(--sunra)"></i><i style="flex:24;background:var(--moss)"></i><b class="ph"></b></div><span class="scn">Network · bar 38</span></div>
+  <div class="dk tab" data-s="sound"><span class="lbl">Sound</span><span class="scn" style="color:var(--fg)">Aphex</span><span class="meter"><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i class=on></i><i></i><i></i><i></i></span></div>
+  <div class="dk tab" data-s="sim"><span class="lbl">Sim</span></div>
+  <span style="flex:1"></span>
+  <span class="scn">day 210 · colonies 8 · tips 112 · loops 20 · 🍄 1</span>
+</div>
+
+<script>
+  // 탭: 누르면 그 판만 열고, 다시 누르면 닫는다
+  const tabs = document.querySelectorAll('.dk.tab');
+  function open(s) {
+    tabs.forEach(t => t.classList.toggle('on', t.dataset.s === s));
+    document.querySelectorAll('.sheet').forEach(x => x.classList.toggle('open', x.id === 'sh-' + s));
+  }
+  tabs.forEach(t => t.onclick = () => open(t.classList.contains('on') ? null : t.dataset.s));
+  addEventListener('keydown', e => e.key === 'Escape' && open(null));
+  const q = new URLSearchParams(location.search).get('open'); if (q) open(q);
+
+  const names = ['D♭','A♭','E♭','B♭','F','C','G','D','A','E','B','F♯'], rel = new Set(['E♭','B♭','C','D','F']);
+  const pads = document.getElementById('pads');
+  names.forEach(n => { const b = document.createElement('button'); b.textContent = n;
+    if (n === 'G') b.classList.add('on'); else if (rel.has(n)) b.classList.add('rel');
+    b.onclick = () => { pads.querySelectorAll('button').forEach(x => x.classList.remove('on')); b.classList.add('on'); upd(); }; pads.appendChild(b); });
+  const quals = document.getElementById('quals');
+  quals.querySelectorAll('button').forEach(b => b.onclick = () => { quals.querySelectorAll('button').forEach(x => x.classList.remove('on')); b.classList.add('on'); upd(); });
+  function upd() { document.querySelector('.chordbig').textContent = pads.querySelector('.on').textContent + ' ' + quals.querySelector('.on').textContent; }
+
+  // 무대 자리 표시용 균사 그림
+  const c = document.getElementById('c'), g = c.getContext('2d');
+  function draw() {
+    const r = c.getBoundingClientRect(); c.width = r.width * 2; c.height = r.height * 2; g.scale(2, 2);
+    const grd = g.createRadialGradient(r.width * .5, r.height * .5, 50, r.width * .5, r.height * .5, r.width * .6);
+    grd.addColorStop(0, '#2a2418'); grd.addColorStop(1, '#0b0b0b'); g.fillStyle = grd; g.fillRect(0, 0, r.width, r.height);
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const grow = (x, y, a, w, d) => { if (d > 9 || w < .25) return; const L = 20 + rnd() * 30;
+      const nx = x + Math.cos(a) * L, ny = y + Math.sin(a) * L;
+      g.strokeStyle = `rgba(230,225,210,${.25 + w * .2})`; g.lineWidth = w; g.beginPath(); g.moveTo(x, y); g.lineTo(nx, ny); g.stroke();
+      grow(nx, ny, a + (rnd() - .5) * .6, w * .85, d + 1); if (rnd() < .55) grow(nx, ny, a + (rnd() < .5 ? -1 : 1) * (.5 + rnd() * .6), w * .6, d + 1); };
+    for (let k = 0; k < 5; k++) { const cx = r.width * (.2 + .6 * rnd()), cy = r.height * (.25 + .5 * rnd());
+      for (let j = 0; j < 7; j++) grow(cx, cy, rnd() * 6.28, 2.2, 0); }
+  }
+  draw();
+</script>
+</body>
+</html>

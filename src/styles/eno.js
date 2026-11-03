@@ -1,7 +1,7 @@
 'use strict';
 // Music for Airports / Discreet Music: 드문 음, 부드러운 음색, 서로 나누어떨어지지 않는 긴 테이프 에코, 긴 잔향
 defineStyle('eno', {
-  color: '#78b3c0', title: { en: 'Eno ambient', ko: 'Eno 앰비언트' },
+  color: 'var(--c-eno)', title: { en: 'Eno ambient', ko: 'Eno 앰비언트' },
   name: 'Eno 앰비언트', short: 'Eno', scale: 'majorPenta', tonic: 65, room: 'long', reverb: 0.8, echo: 0.6, echoTimes: [3.1, 4.3],
   drone: { level: 0.55, saw: 0, sub: 0.4, bright: 0.45, wobble: 0 },
   pad: { level: 1.4, saw: 0, bright: 0.45, fade: 6, swell: 1.5, wobble: 0, wobbleRate: 0.1 },

@@ -20,13 +20,29 @@ const SCALES = {
   chromatic: { name: '반음계', steps: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
 };
 
+// 화음 종류: 근음에서 반음. 화음 모드에서는 이 구성음이 음계 자리를 대신한다 (옥타브 안으로 접어서)
+const CHORDS = [
+  ['maj', [0, 4, 7]], ['min', [0, 3, 7]], ['dom7', [0, 4, 7, 10]], ['maj7', [0, 4, 7, 11]], ['min7', [0, 3, 7, 10]], ['min9', [0, 3, 7, 10, 14]],
+  ['sus2', [0, 2, 7]], ['sus4', [0, 5, 7]], ['add9', [0, 4, 7, 14]], ['6/9', [0, 4, 7, 9, 14]], ['dim', [0, 3, 6]], ['aug', [0, 4, 8]],
+  ['quartal', [0, 5, 10, 15]], ['5th', [0, 7]],
+];
+const CHORD = Object.fromEntries(CHORDS);
+const isMinor = (q) => CHORD[q].includes(3) && !CHORD[q].includes(4);
+// 균사체가 진행시키는 화음: 고른 화음을 I로 두는 네 마디 진행. 장조 계열 I – vi – IV – V7, 단조 계열 i – VI – iv – V7
+function progression(root, qual) {
+  const r = (d) => (root + d) % 12;
+  return isMinor(qual)
+    ? [[root, qual], [r(8), 'maj7'], [r(5), 'min7'], [r(7), 'dom7']]
+    : [[root, qual], [r(9), 'min7'], [r(5), 'maj7'], [r(7), 'dom7']];
+}
+
 // reg: 사건별 음역 (으뜸음 기준 반음). inst: 사건 → 악기. gap: 같은 사건 사이 최소 간격(초).
 // grid: 있으면 이 스타일로 연주되는 사건을 그 박자 격자에 맞춰 낸다 (스타일마다 따로 도는 시계 → 섞으면 폴리리듬).
 //   성장음은 격자 칸마다 확률적으로 친다. bpm 'flow'는 양분 흐름으로 빨라진다.
 // grain: 성장음 밀도 = max · (1 − e^(−팁 수/tips)). 격자 스타일은 칸이 적으니 팁 몇십 개로도 꽉 차게.
 //   mode는 음높이 고르는 법: 'noise'(무작위 고역) · 'scale'(음계 무작위, amp) · 'arp'(지금 화음 아르페지오, amp) · 'hat'(16분 강세) · 'offbeat'(뒷박 열린 햇)
 // motor: { every, hold } 있으면 파면이 지나가는 동안 격자 every칸마다 재진입 채널 악기를 친다 (hold초까지 이어서).
-// color · title { en, ko }: 믹서 띠 색과 화면 이름. 프리셋을 누르면 scale · tonic · reverb · echo도 이 값으로 바뀐다.
+// color: ds.css의 범주색 토큰 (var(--c-…)). 새 스타일은 토큰 하나를 ds.css에 더한다. title { en, ko }: 화면 이름. 프리셋을 누르면 scale · tonic · reverb · echo도 이 값으로 바뀐다.
 // 스타일은 src/styles/*.js 파일 하나에 하나씩 defineStyle()로 등록된다 (index.html의 순서 = 손잡이 왼쪽 → 오른쪽, 이웃끼리 섞인다).
 // 스타일이 만든 악기는 이름으로 등록되어 다른 스타일도 빌려 쓸 수 있다
 const STYLES = {}, STYLE_ORDER = [], VOICES = {};
@@ -118,7 +134,14 @@ class MyceliumSound {
     this.vol = {};         // 채널 → 음량 (0 ~ 1.5)
     this.w = {};           // 채널 → styleWeights(pos)
     for (const ch of CHANNELS) this.vol[ch.key] = 1;
-    this.info = { drone: '-', pad: 0, grains: 0, front: 0, reentry: 0, voices: 0, bpm: [] };
+    this.info = { drone: '-', pad: 0, grains: 0, front: 0, reentry: 0, voices: 0, bpm: [], chord: '' };
+    // 화음: mode 'scale' = 화음 없이 음계 그대로 (예전 소리) · 'hold' = 고른 화음에 고정 · 'network' = 균사체가 자라며 진행
+    this.chord = { mode: 'scale', root: 7, qual: 'min7' };
+    this.prog = 0;         // network 모드에서 진행표의 몇 번째 화음인지
+    // 패치(src/patch.js)가 넣는 모듈레이션: 손잡이 값은 그대로 두고 그 위에 얹는다
+    this.mod = { cutoffOpen: 1, tempo: 0, density: 0, reverb: 0, echo: 0, pitch: 0 };
+    this.modDeg = 0;       // pitch → 음계 칸 (정수)
+    this.flowLv = 0;
     this.preset('lab');
   }
 
@@ -157,12 +180,55 @@ class MyceliumSound {
     return `${a[0].short} ${Math.round(a[1] * 100)}·${b[0].short.slice(0, 2)}`;
   }
 
-  get scale() { return SCALES[this.scaleKey].steps; }
+  // ---------- 화음 ----------
+  get chordOn() { return this.chord.mode !== 'scale'; }
+  // 지금 울리는 화음 [근음 pc, 종류]
+  get current() {
+    const { mode, root, qual } = this.chord;
+    if (mode === 'network') { const p = progression(root, qual); return p[this.prog % p.length]; }
+    return [root, qual];
+  }
+  get progressionList() { return progression(this.chord.root, this.chord.qual); }
+  // 화음 근음의 MIDI: 스타일 으뜸음과 같은 음역에 (−6 ~ +5 반음 안)
+  get base() {
+    if (!this.chordOn) return this.tonic;
+    const [r] = this.current;
+    return this.tonic + (((r - (this.tonic % 12)) % 12 + 18) % 12) - 6;
+  }
+  setChord(c) {
+    const was = this.chordOn, home = `${this.chord.root}${this.chord.qual}`;
+    Object.assign(this.chord, c);
+    if (`${this.chord.root}${this.chord.qual}` !== home || !was) this.prog = 0;
+    this.chordChanged();
+  }
+  // 진행 한 칸 (network 모드: 군체가 커져 드론 칸이 바뀔 때, 버섯이 올라올 때)
+  advance() {
+    if (this.chord.mode !== 'network') return;
+    this.prog = (this.prog + 1) % this.progressionList.length;
+    this.chordChanged();
+  }
+  chordChanged() {
+    const [r, q] = this.current;
+    this.info.chord = this.chordOn ? `${NOTE_NAMES[r]} ${q}` : '';
+    if (this.ctx && this.droneStep >= 0) this.retune();
+  }
 
-  // 으뜸음 + reg 반음에서 시작해 음계 k번째 칸 (음수면 아래로)
+  // 음계: 화음 모드면 지금 화음의 구성음 (옥타브 안으로 접고 정렬), 아니면 고른 음계
+  get scale() {
+    if (!this.chordOn) return SCALES[this.scaleKey].steps;
+    const [, q] = this.current;
+    return [...new Set(CHORD[q].map((i) => i % 12))].sort((a, b) => a - b);
+  }
+  // 1 · 3 · 5도에 해당하는 음계 칸 (화음 모드에서는 구성음 0 · 1 · 2번째)
+  get triad() { return this.chordOn ? [0, 1, 2] : [0, 2, 4]; }
+  // 드론 칸: 음계 모드에서는 군체가 클수록 아래로 걷고, 화음 모드에서는 늘 근음 (화음이 바뀌는 것은 진행이 맡는다)
+  get rd() { return this.chordOn ? 0 : -Math.max(0, this.droneStep); }
+
+  // 기준음(으뜸음 또는 화음 근음) + reg 반음에서 시작해 음계 k번째 칸 (음수면 아래로). 패치의 pitch가 칸을 옮긴다
   note(reg, k) {
     const s = this.scale, n = s.length;
-    return this.tonic + reg + 12 * Math.floor(k / n) + s[((k % n) + n) % n];
+    k += this.modDeg;
+    return this.base + reg + 12 * Math.floor(k / n) + s[((k % n) + n) % n];
   }
   // 음계에서 완전5도(7반음)에 가장 가까운 칸
   get fifth() {
@@ -179,10 +245,29 @@ class MyceliumSound {
 
   // 브라우저는 사용자 동작(클릭) 안에서만 소리를 허락한다
   async start() {
+    this.unmuteIOS();
     if (!this.ctx) this.build();
     await this.ctx.resume();
     this.enabled = true;
     this.applyGain();
+  }
+
+  // iOS는 Web Audio를 '벨소리' 채널로 내보내서 무음 스위치가 켜져 있으면 스피커가 침묵한다 (이어폰은 예외).
+  // 오디오 세션을 '재생'으로 바꾸면 음악 앱처럼 무음 스위치를 무시한다. 신형 Safari는 audioSession API,
+  // 구형은 클릭 안에서 소리 없는 <audio>를 반복 재생해 세션을 미디어 재생으로 끌어올리는 방법을 쓴다.
+  unmuteIOS() {
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+    if (this.silentEl) { this.silentEl.play().catch(() => {}); return; }
+    const sr = 8000, n = sr / 2, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+    const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVEfmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    w(36, 'data'); v.setUint32(40, n * 2, true);
+    const el = this.silentEl = document.createElement('audio');
+    el.src = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+    el.loop = true; el.setAttribute('playsinline', ''); el.setAttribute('x-webkit-airplay', 'deny');
+    el.play().catch(() => {});
   }
 
   setVolume(v) { this.volume = v; this.applyGain(); }
@@ -205,12 +290,25 @@ class MyceliumSound {
     this.master.gain.setTargetAtTime(g, this.ctx.currentTime, 0.05);
   }
 
+  // 잔향 · 에코: 손잡이 값 + 패치
+  get reverbNow() { return clamp(this.reverbAmt + this.mod.reverb, 0, 1); }
+  get echoNow() { return clamp(this.echoAmt + this.mod.echo, 0, 1); }
   applyMix() {
     if (!this.ctx) return;
-    const now = this.ctx.currentTime;
-    this.wet.gain.setTargetAtTime(this.reverbAmt, now, 0.3);
-    this.echoIn.gain.setTargetAtTime(this.echoAmt * 0.9, now, 0.3);
-    for (const fb of this.echoFb) fb.gain.setTargetAtTime(0.2 + 0.5 * this.echoAmt, now, 0.3);
+    const now = this.ctx.currentTime, e = this.echoNow;
+    this.wet.gain.setTargetAtTime(this.reverbNow, now, 0.3);
+    this.echoIn.gain.setTargetAtTime(e * 0.9, now, 0.3);
+    for (const fb of this.echoFb) fb.gain.setTargetAtTime(0.2 + 0.5 * e, now, 0.3);
+  }
+  // 패치 결과를 받는다 (main.js가 통계를 갱신할 때마다)
+  setMod(o) {
+    Object.assign(this.mod, o);
+    const deg = Math.round(clamp(this.mod.pitch, -1, 1) * this.scale.length);
+    if (deg !== this.modDeg) { this.modDeg = deg; if (this.ctx && this.droneStep >= 0) this.retune(); }
+    if (!this.ctx) return;
+    // 마스터 저역 필터: 다 열림 20 kHz, 다 닫힘 약 160 Hz (일곱 옥타브)
+    this.lp.frequency.setTargetAtTime(20000 * Math.pow(2, -7 * (1 - clamp(this.mod.cutoffOpen, 0, 1))), this.ctx.currentTime, 0.25);
+    this.applyMix();
   }
 
   // 지속음(드론 · 화음 · 파면)과 공간을 지금 채널 위치로 맞춘다
@@ -259,7 +357,9 @@ class MyceliumSound {
     comp.attack.value = 0.004; comp.release.value = 0.25;
     this.master = ctx.createGain();
     this.master.gain.value = 0;
-    this.master.connect(comp).connect(ctx.destination);
+    this.lp = ctx.createBiquadFilter();   // 패치의 cutoff 목적지
+    this.lp.type = 'lowpass'; this.lp.frequency.value = 20000; this.lp.Q.value = 0.7;
+    this.master.connect(this.lp).connect(comp).connect(ctx.destination);
     this.comp = comp;
     this.dry = ctx.createGain();
     this.dry.connect(this.master);
@@ -503,7 +603,7 @@ class MyceliumSound {
 
   stepLen(st) {
     const g = st.grid;
-    return 60 / (g.bpm === 'flow' ? this.bpm : g.bpm) / g.div;
+    return 60 / (g.bpm === 'flow' ? this.bpm : g.bpm) / g.div / Math.pow(2, clamp(this.mod.tempo, -1, 1));   // 패치 tempo: 반 ~ 두 배
   }
   // 스타일 st로 내는 사건음의 시각: 그 스타일 시계의 다음 칸에 맞추거나, humanize만큼 흐트린다
   when(st, delay = 0.005) {
@@ -552,7 +652,7 @@ class MyceliumSound {
     for (const k of STYLE_ORDER) {
       const st = STYLES[k];
       const w = this.weightOf('grow', st);
-      const density = st.grain.max * (1 - Math.exp(-tips / st.grain.tips)) * w;
+      const density = st.grain.max * (1 - Math.exp(-tips / st.grain.tips)) * w * Math.pow(2, 2 * clamp(this.mod.density, -1, 1));   // 패치 density: ¼ ~ 4배
       const c = this.clocks[k];
       if (c) {
         const s = this.stepLen(st);
@@ -598,7 +698,7 @@ class MyceliumSound {
   // 드론 · 화음 · 웅 소리의 음높이를 지금 드론 칸에 맞춘다
   retune() {
     if (!this.ctx || this.droneStep < 0) return;
-    const now = this.ctx.currentTime, rd = -this.droneStep;
+    const now = this.ctx.currentTime, rd = this.rd;
     const root = this.note(-12, rd);
     for (const o of this.droneOsc) o.frequency.setTargetAtTime(mtof(root), now, 1.5);
     const degs = this.padDegrees;
@@ -655,12 +755,18 @@ class MyceliumSound {
       let step = this.droneStep < 0 ? Math.floor(lv) : this.droneStep;
       if (lv >= step + 1.1) step = Math.floor(lv); else if (lv < step - 0.1) step = Math.floor(lv);
       step = clamp(step, 0, DRONE_STEPS - 1);
-      if (step !== this.droneStep) { this.droneStep = step; this.retune(); }
+      if (step !== this.droneStep) {
+        const first = this.droneStep < 0;
+        this.droneStep = step;
+        if (!first) this.advance();
+        this.retune();
+      }
     }
     const flowLv = clamp(Math.log10(1 + flow) / 2.7, 0, 1);   // Σ|Q|: 1 → 0.11, 30 → 0.55, 500 → 1
+    this.flowLv = flowLv;
     const thickLv = clamp(s.thick / 0.2, 0, 1);               // 굵은 균사삭 비율 0 ~ 20%
     this.bpm = Math.round(100 + 60 * flowLv);                  // Aphex 격자: 많이 흐를수록 빠르게
-    const root = mtof(this.note(-12, -Math.max(0, this.droneStep)));
+    const root = mtof(this.note(-12, this.rd));
     this.droneGain.gain.setTargetAtTime(nodes ? (0.06 + 0.16 * flowLv) * td.level : 0, now, T);
     this.droneFilter.frequency.setTargetAtTime((root * 2 + 1400 * flowLv * flowLv + 900 * thickLv) * td.bright, now, T);
     this.droneFilter.Q.setTargetAtTime(0.7 + 7 * thickLv, now, T);
@@ -676,7 +782,7 @@ class MyceliumSound {
     this.info.pad = voices;
     if (this.midi) {
       // 드론: 지금 드론 음 하나, 화음: 쌓인 음들 (음량 0이면 끈다). 흐름 → CC74(밝기)
-      const rd = -Math.max(0, this.droneStep), degs = this.padDegrees;
+      const rd = this.rd, degs = this.padDegrees;
       this.midiHold('drone', nodes && this.vol.drone > 0 ? [this.note(-12, rd)] : []);
       this.midiHold('pad', this.vol.pad > 0 ? degs.slice(0, voices).map((d) => this.note(-12, rd + d)) : []);
       this.midiCC('drone', 74, flowLv);
@@ -869,11 +975,13 @@ class MyceliumSound {
 
   // 버섯: 원기가 생기면 위로 오르는 아르페지오, 포자를 날리기 시작하면 높은 음이 흩어지고, 포자가 싹트면 한 음
   onFruit(x, y, kind) {
+    if (kind === 'fruit') this.advance();
     this.each('fruit', (st, g) => {
       const n = this.scale.length, inst = st.inst.fruit, t0 = this.when(st, 0.01);
       const step = st.grid ? this.stepLen(st) : 0.17;
       if (kind === 'fruit') {
-        [0, 2, 4, n, n + 2].forEach((d, k) => this.play('fruit', inst, x, mtof(this.note(st.reg.fruit, d)), 0.2 * g, t0 + k * step));
+        const [a, b, c] = this.triad;
+        [a, b, c, n + a, n + b].forEach((d, k) => this.play('fruit', inst, x, mtof(this.note(st.reg.fruit, d)), 0.2 * g, t0 + k * step));
       } else if (kind === 'spores') {
         for (let k = 0; k < 7; k++) {
           const d = n + ((Math.random() * n * 1.5) | 0);
@@ -898,8 +1006,8 @@ class MyceliumSound {
     let f = 0, amp = 0.06 + Math.random() * 0.08, opt = {};
     if (mode === 'arp') {
       // 아르페지오: 지금 화음(드론 칸 기준 1·3·5도 위로 두 옥타브)을 대체로 올라가며 걷는다
-      const n = this.scale.length, rd = ((-Math.max(0, this.droneStep) % n) + n) % n;
-      const chord = [0, 2, 4, n, n + 2, n + 4];
+      const n = this.scale.length, rd = ((this.rd % n) + n) % n, [a, b, c] = this.triad;
+      const chord = [a, b, c, n + a, n + b, n + c];
       this.arp = (this.arp + (Math.random() < 0.75 ? 1 : chord.length - 1)) % chord.length;
       f = mtof(this.note(st.reg.grain, rd + chord[this.arp]));
       amp = st.grain.amp;

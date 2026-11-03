@@ -1,7 +1,7 @@
 'use strict';
 // 기본 소리: 실험실 계측기처럼 사건을 그대로 들려준다
 defineStyle('lab', {
-  color: '#c9b48a', title: { en: 'Lab', ko: '연구실' },
+  color: 'var(--c-lab)', title: { en: 'Lab', ko: '연구실' },
   name: '연구실', short: 'Lab', scale: 'minorPenta', tonic: 62, room: 'short', reverb: 0.55, echo: 0, echoTimes: [0.4, 0.6],
   drone: { level: 1, saw: 1, sub: 1, bright: 1, wobble: 0 },
   pad: { level: 1, saw: 0, bright: 1, fade: 2, swell: 0, wobble: 0, wobbleRate: 0.2 },

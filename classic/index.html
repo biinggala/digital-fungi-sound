@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Digital Fungi Sound</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0e0e;
+    --fg: #e0e0e0;
+    --strong: #ffffff;
+    --muted: #7c7c7c;
+    --muted-2: #565656;
+    --muted-3: #2e2e2e;
+    --bar-on: #d0d0d0;
+    --bar-off: #2c2c2c;
+    --red: #e8553f;
+    /* 스타일 색: 믹서 띠 · 프리셋 견본 */
+    --lab: #c9b48a;
+    --eno: #78b3c0;
+    --moss: #5f8f62;
+    --green: #b3c45a;
+    --aphex: #e8553f;
+    --sunra: #b07ad8;
+  }
+  :root { color-scheme: dark; }  /* 한 가지 어두운 화면으로 정한 디자인 */
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg);
+    font: 12px/1.4 'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.05em; }
+  body { display: flex; flex-direction: column; user-select: none; }
+  button { font: inherit; letter-spacing: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+
+  /* ---------- 위쪽 조작 줄 ---------- */
+  /* 조절 바는 화면의 60%까지, 넘치면 바 안에서 스크롤 (무대가 늘 남도록) */
+  #bar { padding: 16px 32px 4px; display: flex; flex-direction: column; gap: 11px; flex-shrink: 0; max-height: 60%; overflow-y: auto; }
+  .line { display: flex; flex-wrap: wrap; align-items: center; column-gap: 30px; row-gap: 9px; }
+  /* 단계: 0 = 첫 줄만, 1 = + 성장 · 전기, 2 = + 소리 · 믹서 */
+  #bar[data-level="0"] > .sim-row, #bar[data-level="0"] > .sound-row, #bar[data-level="1"] > .sound-row { display: none; }
+  .rule { height: 1px; background: var(--muted-3); margin: 2px 0; }
+  .title { color: var(--strong); text-transform: uppercase; letter-spacing: 0.1em; }
+  .title small { color: var(--muted-2); font-size: inherit; margin-left: 6px; }
+  .group { color: var(--muted-2); text-transform: uppercase; font-size: 10px; letter-spacing: 0.14em; min-width: 52px; }
+  .ctl { display: inline-flex; align-items: center; gap: 9px; white-space: nowrap; }
+  .lbl { color: var(--muted); text-transform: uppercase; }
+  .lbl.nocase { text-transform: none; }  /* 대문자로 바꾸면 μ · ε가 그리스 대문자(M · E처럼 보임)가 된다 */
+  output { color: var(--fg); min-width: 2.5ch; font-variant-numeric: tabular-nums; }
+  .push { margin-left: auto; }
+  .btn { border: 1px solid #bdbdbd; border-radius: 3px; padding: 1px 6px; text-transform: uppercase; color: var(--fg); }
+  .btn:hover { background: #1d1d1d; }
+  .btn.on { border-color: var(--red); color: var(--red); }
+  .btn:disabled { opacity: 0.35; cursor: default; }
+  /* 소리 버튼: 꺼져 있으면 흐리게, 켜져 있으면 또렷하게 */
+  #soundOn { color: var(--muted); border-color: var(--muted-2); }
+  #soundOn.live { color: var(--strong); border-color: var(--strong); }
+  .opt { color: var(--muted-2); text-transform: uppercase; }
+  .opt:hover { color: var(--muted); }
+  .opt.on { color: var(--strong); }
+  .opt .g { margin-right: 5px; }
+  .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .hidden { display: none; }
+
+  /* 블록 막대: 끌거나 휠로 */
+  .meter { display: inline-flex; gap: 2px; cursor: ew-resize; padding: 3px 0; touch-action: none; }
+  .meter i { width: 7px; height: 12px; border-radius: 1.5px; background: var(--bar-off); }
+  .meter i.on { background: var(--bar-on); }
+  .meter:hover i.on { background: var(--strong); }
+
+  /* 믹서: 이름 | 스타일 띠 | 섞인 상태 | 음량 */
+  #mixer { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); column-gap: 34px; row-gap: 7px; }
+  .chan { display: grid; grid-template-columns: 72px minmax(96px, 1fr) 62px 52px; align-items: center; gap: 10px; }
+  .chan .lbl { overflow: hidden; text-overflow: ellipsis; }
+  .chan output { color: var(--muted); font-size: 11px; overflow: hidden; }
+  .track { position: relative; display: flex; gap: 2px; height: 18px; align-items: center; cursor: ew-resize; touch-action: none; }
+  .track i { flex: 1; height: 12px; border-radius: 1.5px; }
+  .track b { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--strong); pointer-events: none; }
+
+  /* 건반: 으뜸음 고르기 */
+  .keys { position: relative; width: 113px; height: 22px; cursor: pointer; }
+  .keys span { position: absolute; top: 0; border-radius: 0 0 2px 2px; }
+  .keys .w { width: 15px; height: 22px; background: #8a8a8a; }
+  .keys .b { width: 9px; height: 13px; background: #2a2a2a; z-index: 1; }
+  .keys span:hover { filter: brightness(1.25); }
+  .keys span.on { background: var(--red); }
+  select.plain { appearance: none; -webkit-appearance: none; background: none; border: 0; color: var(--fg); font: inherit;
+    letter-spacing: inherit; text-transform: uppercase; cursor: pointer; padding: 0 2px; }
+  select.plain option { background: #161616; }
+  #scope { width: 170px; height: 24px; border-radius: 2px; }
+
+  /* ---------- 상태 줄 + 무대 ---------- */
+  #status { display: flex; justify-content: space-between; gap: 24px; padding: 10px 32px 6px; color: var(--muted-2);
+    font-size: 11px; white-space: nowrap; overflow: hidden; text-transform: uppercase; }
+  #status span { overflow: hidden; text-overflow: ellipsis; }
+  /* 무대: 조작 줄 · 상태 줄 아래를 화면 끝까지 꽉 채운다 */
+  #stage { position: relative; flex: 1; min-height: 160px; margin: 0; background-color: #0b0b0b; }
+  #world { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: none; }
+  #scalebar { position: absolute; right: 22px; bottom: 16px; display: flex; align-items: center; gap: 8px; pointer-events: none;
+    color: var(--muted); font-size: 11px; }
+  #scalebar i { display: block; height: 2px; background: #cfcfcf; }
+  #help, #contact { position: absolute; padding: 12px 16px; line-height: 1.75;
+    background: rgba(12, 12, 12, 0.94); border: 1px solid #333; border-radius: 3px; color: var(--fg); }
+  #help { left: 18px; bottom: 18px; max-width: 620px; }
+  /* 만든 사람 · 연락처: 도움말과 같은 판, 무대 오른쪽 위 */
+  #contact { right: 18px; top: 18px; min-width: 300px; }
+  #contact .who { color: var(--strong); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  #contact dl { display: grid; grid-template-columns: 84px auto; column-gap: 12px; row-gap: 2px; margin: 0; align-items: center; }
+  #contact dt { color: var(--muted); text-transform: uppercase; }
+  #contact dd { margin: 0; display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+  #contact a { color: var(--fg); text-decoration: none; border-bottom: 1px solid var(--muted-3); }
+  #contact a:hover, #contact a:focus-visible { color: var(--strong); border-bottom-color: var(--strong); }
+  #contact .mail { user-select: text; }
+  .byline { color: var(--muted-2); text-transform: uppercase; }
+  .byline b { color: var(--muted); font-weight: 400; }
+  /* 휴대폰 폭: 여백 16 px, 믹서는 한 줄씩 */
+  @media (max-width: 600px) {
+    #bar, #status { padding-left: 16px; padding-right: 16px; }
+    #bar { max-height: 50%; }
+    #mixer { grid-template-columns: minmax(0, 1fr); }
+    .chan { grid-template-columns: 64px minmax(0, 1fr) 54px 48px; }
+    .line { column-gap: 18px; }
+    #help { left: 8px; right: 8px; bottom: 8px; }
+    #contact { left: 8px; right: 8px; top: 8px; min-width: 0; }
+  }
+  #help b { color: var(--muted); font-weight: 400; text-transform: uppercase; margin-right: 6px; }
+  #legend { margin-top: 6px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header id="bar" data-level="2">
+  <!-- 1: 제목 (혼자 한 줄) / 재생 · 도구 · 보기 · 언어 -->
+  <div class="line">
+    <span class="ctl"><span class="title">Digital Fungi<small>♪ sound</small></span><span class="byline">by <b>Heegun Choi</b></span></span>
+  </div>
+  <div class="line">
+    <span class="ctl">
+      <button class="btn" id="pause"></button>
+      <button class="btn" id="reset" data-i18n-title="reset.t"></button>
+      <button class="btn" id="rec" data-i18n-title="rec.t"></button>
+    </span>
+    <span class="ctl" id="tools">
+      <span class="lbl" data-i18n="tool"></span>
+      <button class="opt on" data-tool="spore" data-i18n-title="tool.spore.t"><span class="g">◉</span><span data-i18n="tool.spore"></span></button>
+      <button class="opt" data-tool="food" data-i18n-title="tool.food.t"><span class="g">▦</span><span data-i18n="tool.food"></span></button>
+      <button class="opt" data-tool="stim" data-i18n-title="tool.stim.t"><span class="g">ϟ</span><span data-i18n="tool.stim"></span></button>
+      <button class="opt" data-tool="probe" data-i18n-title="tool.probe.t"><span class="g">⌖</span><span data-i18n="tool.probe"></span></button>
+    </span>
+    <span class="ctl">
+      <span class="lbl" data-i18n="view"></span>
+      <button class="opt on" data-view="colony" data-i18n="view.colony"></button>
+      <button class="opt" data-view="flow" data-i18n="view.flow"></button>
+    </span>
+    <span class="ctl" data-i18n-title="transport.t">
+      <span class="lbl" data-i18n="transport"></span>
+      <button class="opt on" data-transport="local" data-i18n="transport.local"></button>
+      <button class="opt" data-transport="global" data-i18n="transport.global"></button>
+    </span>
+    <span class="ctl">
+      <span class="lbl" data-i18n="soil"></span>
+      <button class="opt on" id="soil">■</button>
+    </span>
+    <span class="ctl">
+      <span class="lbl" data-i18n="mat"></span>
+      <button class="opt on" id="matToggle">■</button>
+    </span>
+    <span class="ctl" data-i18n-title="zoom.t">
+      <span class="lbl" data-i18n="zoom"></span>
+      <output id="zoom">1.0×</output>
+      <button class="opt" id="fit" data-i18n-title="fit.t">⤢</button>
+    </span>
+    <span class="ctl push">
+      <button class="btn" id="soundOn" data-i18n-title="soundOn.t"></button>
+      <button class="opt" id="barToggle" data-i18n-title="bar.t">▴</button>
+      <button class="opt" id="contactBtn" data-i18n="contact" data-i18n-title="contactTitle"></button>
+      <button class="opt" id="helpBtn" data-i18n="help" data-i18n-title="helpTitle"></button>
+      <button class="btn" id="lang" data-i18n="lang" data-i18n-title="langTitle"></button>
+    </span>
+  </div>
+
+  <!-- 2: 성장 (한 번 펼치면) -->
+  <div class="line sim-row">
+    <span class="group" data-i18n="grow"></span>
+    <span class="ctl"><span class="lbl" data-i18n="p.speed"></span><output></output><span class="meter"></span>
+      <input type="range" class="hidden" id="speed" min="1" max="12" step="1" value="1"></span>
+    <span class="ctl"><span class="lbl" data-i18n="p.branch"></span><output></output><span class="meter"></span>
+      <input type="range" class="hidden" id="branch" min="0" max="0.1" step="0.002" value="0.04"></span>
+    <span class="ctl"><span class="lbl" data-i18n="p.chemo"></span><output></output><span class="meter"></span>
+      <input type="range" class="hidden" id="chemo" min="0" max="3" step="0.1" value="1"></span>
+    <span class="ctl"><span class="lbl" data-i18n="p.avoid"></span><output></output><span class="meter"></span>
+      <input type="range" class="hidden" id="avoid" min="0" max="2" step="0.05" value="0.3"></span>
+    <span class="ctl"><span class="lbl" data-i18n="p.adapt"></span><output></output><span class="meter"></span>
+      <input type="range" class="hidden" id="adapt" min="0.002" max="0.08" step="0.002" value="0.02"></span>
+    <span class="ctl" data-i18n-title="p.flowExp.t"><span class="lbl nocase" data-i18n="p.flowExp"></span><output></output><span class="meter"></span>
+      <input type="range" class="hidden" id="flowExp" min="0.5" max="3" step="0.1" value="1.5"></span>
+  </div>
+
+  <!-- 3: 전기 -->
+  <div class="line sim-row">
+    <span class="group" data-i18n="elec"></span>
+    <span class="ctl" data-i18n-title="p.spontaneous.t"><span class="lbl" data-i18n="p.spontaneous"></span><output></output><span class="meter"></span>
+      <input type="range" class="hidden" id="spontaneous" min="0" max="0.02" step="0.001" value="0.004"></span>
+    <span class="ctl" data-i18n-title="p.elecRecovery.t"><span class="lbl nocase" data-i18n="p.elecRecovery"></span><output></output><span class="meter"></span>
+      <input type="range" class="hidden" id="elecRecovery" min="0.001" max="0.02" step="0.001" value="0.003"></span>
+    <span class="ctl" data-i18n-title="p.fusionConduct.t"><span class="lbl" data-i18n="p.fusionConduct"></span><output></output><span class="meter"></span>
+      <input type="range" class="hidden" id="fusionConduct" min="0" max="1" step="0.05" value="1"></span>
+    <span class="ctl" data-i18n-title="p.spikeResponse.t"><span class="lbl" data-i18n="p.spikeResponse"></span><output></output><span class="meter"></span>
+      <input type="range" class="hidden" id="spikeResponse" min="0" max="6" step="0.5" value="3"></span>
+    <span class="ctl"><span class="lbl" data-i18n="scope"></span><canvas id="scope" width="340" height="48"></canvas></span>
+  </div>
+
+  <!-- 3½: 매트 · 결실 -->
+  <div class="line sim-row">
+    <span class="group" data-i18n="fruitGrp"></span>
+    <span class="ctl" data-i18n-title="p.matGrowth.t"><span class="lbl" data-i18n="p.matGrowth"></span><output></output><span class="meter"></span>
+      <input type="range" class="hidden" id="matGrowth" min="0" max="0.06" step="0.002" value="0.02"></span>
+    <span class="ctl" data-i18n-title="p.matSpread.t"><span class="lbl" data-i18n="p.matSpread"></span><output></output><span class="meter"></span>
+      <input type="range" class="hidden" id="matSpread" min="0" max="0.2" step="0.01" value="0.12"></span>
+    <span class="ctl" data-i18n-title="p.fruitSat.t"><span class="lbl" data-i18n="p.fruitSat"></span><output></output><span class="meter"></span>
+      <input type="range" class="hidden" id="fruitSat" min="0" max="0.1" step="0.005" value="0.03"></span>
+    <span class="ctl" data-i18n-title="p.fruitShare.t"><span class="lbl" data-i18n="p.fruitShare"></span><output></output><span class="meter"></span>
+      <input type="range" class="hidden" id="fruitShare" min="0.1" max="0.9" step="0.05" value="0.5"></span>
+  </div>
+
+  <div class="rule sound-row"></div>
+
+  <!-- 4: 소리 (한 번 더 펼치면). 소리 켜기·끄기는 어느 단계에서나 보이게 첫 줄에 -->
+  <div class="line sound-row">
+    <span class="group" data-i18n="sound"></span>
+    <span class="ctl"><span class="lbl" data-i18n="volume"></span><output></output><span class="meter"></span>
+      <input type="range" class="hidden" id="volume" min="0" max="1" step="0.01" value="0.7"></span>
+    <span class="ctl" id="presets"><span class="lbl" data-i18n="style"></span></span>
+    <span class="ctl"><span class="lbl" data-i18n="key"></span><output id="keyName"></output><span class="keys" id="keys"></span></span>
+    <span class="ctl"><span class="lbl" data-i18n="scale"></span><select class="plain" id="soundScale"></select></span>
+    <span class="ctl"><span class="lbl" data-i18n="reverb"></span><output></output><span class="meter"></span>
+      <input type="range" class="hidden" id="reverb" min="0" max="1" step="0.01" value="0.55"></span>
+    <span class="ctl" data-i18n-title="echo.t"><span class="lbl" data-i18n="echo"></span><output></output><span class="meter"></span>
+      <input type="range" class="hidden" id="echo" min="0" max="1" step="0.01" value="0"></span>
+    <span class="ctl" data-i18n-title="midi.t"><span class="lbl">MIDI</span>
+      <button class="btn" id="midiBtn" data-i18n="midi.connect"></button>
+      <select class="plain" id="midiOut" hidden></select></span>
+  </div>
+
+  <!-- 5: 믹서 (채널마다 스타일 띠 + 음량) -->
+  <div class="line sound-row" style="align-items: start">
+    <span class="group" data-i18n="mixer" data-i18n-title="mixer.t"></span>
+    <div id="mixer" style="flex: 1"></div>
+  </div>
+</header>
+
+<div id="status"><span id="simStats"></span><span id="soundStats"></span></div>
+
+<main id="stage">
+  <canvas id="world"></canvas>
+  <div id="scalebar"><i></i><span></span></div>
+  <div id="contact" hidden>
+    <div class="who">Heegun Choi</div>
+    <dl>
+      <dt>Instagram</dt><dd><a href="https://www.instagram.com/biinggala/" target="_blank" rel="noopener">@biinggala ↗</a></dd>
+      <dt>GitHub</dt><dd><a href="https://github.com/biinggala" target="_blank" rel="noopener">biinggala ↗</a></dd>
+      <dt data-i18n="email"></dt><dd><span class="mail" id="mail">biinggala@gmail.com</span><button class="btn" id="copyMail" data-i18n="copy"></button></dd>
+    </dl>
+  </div>
+  <div id="help" hidden>
+    <div data-i18n-html="help.body"></div>
+    <div id="legend"></div>
+  </div>
+</main>
+
+<script src="src/i18n.js?v=18"></script>
+<script src="src/mycelium.js?v=13"></script>
+<script src="src/sound.js?v=24"></script>
+<script src="src/main.js?v=34"></script>
+</body>
+</html>
